@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, CreditCard, Key, Settings } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Key, UserCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -74,10 +74,10 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild data-testid="link-settings">
-              <Link href="/configuracoes">
-                <Settings className="h-4 w-4" />
-                <span>Configurações</span>
+            <SidebarMenuButton asChild isActive={location === "/perfil"} data-testid="link-perfil">
+              <Link href="/perfil">
+                <UserCircle className="h-4 w-4" />
+                <span>Meu Perfil</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
