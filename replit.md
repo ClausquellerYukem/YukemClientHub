@@ -34,6 +34,23 @@ The application features complete authentication using Replit Auth (OpenID Conne
 - **Status Management**: Clients can have "active", "inactive", or "trial" status with colored badges
 - **E2E Tested**: All CRUD operations verified including soft delete workflow
 
+### Boleto Printing Integration (Completed - Nov 2025)
+- **External API Integration**: Connects to external boleto API (http://51.222.16.165:3010/v1/boleto/{id}) with custom authentication headers
+- **Configuration Management**: Dedicated page (/configuracoes) for managing app_token and access_token credentials
+- **Security Features**:
+  - Tokens stored in PostgreSQL database via boleto_config table
+  - GET endpoint returns masked tokens (first 4 + last 4 characters visible)
+  - Form validation prevents posting masked values
+  - Clear UX messaging for credential updates
+- **Print Functionality**:
+  - "Print Boleto" button on each invoice in financial screen
+  - Handles multiple response formats: URLs (http/https), base64 PDFs, or other formats
+  - Opens boleto in new tab for user access
+  - Comprehensive error handling with user-friendly toast messages
+- **Database Schema**: Created boleto_config table with app_token, access_token fields using Drizzle Kit
+- **Bug Fixes**: Fixed upsertUser to use email as conflict target (not id) to handle unique constraint properly
+- **E2E Tested**: Full flow verified from configuration save → token masking → print button → error handling
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -104,6 +121,9 @@ Preferred communication style: Simple, everyday language.
 - **Clients Table**: Company information, contact details, subscription plan, billing amount, and status
 - **Licenses Table**: License keys linked to clients with activation dates and expiration tracking
 - **Invoices Table**: Billing records with amounts, due dates, payment tracking, and status
+- **Boleto Config Table**: Stores external API credentials (app_token, access_token) for boleto printing integration
+- **Users Table**: Authentication data with email as unique identifier for OIDC upsert operations
+- **Sessions Table**: PostgreSQL-backed session storage for Replit Auth
 
 **Data Validation**
 - Drizzle-Zod integration for automatic schema-to-validation generation
