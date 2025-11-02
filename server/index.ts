@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { seedInitialData } from "./seed-data";
 
 const app = express();
 
@@ -48,8 +47,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await seedInitialData();
-  
+  // Note: Initial data seeding removed - will seed after authentication is set up
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

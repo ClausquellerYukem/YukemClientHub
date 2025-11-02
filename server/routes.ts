@@ -3,9 +3,26 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get("/api/clients", async (req, res) => {
+  // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
+  await setupAuth(app);
+
+  // Auth route to get current user
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Protected routes - All client/license/invoice routes require authentication
+  app.get("/api/clients", isAuthenticated, async (req, res) => {
     try {
       const clients = await storage.getAllClients();
       res.json(clients);
@@ -14,7 +31,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id", async (req, res) => {
+  app.get("/api/clients/:id", isAuthenticated, async (req, res) => {
     try {
       const client = await storage.getClient(req.params.id);
       if (!client) {
@@ -26,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/clients", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertClientSchema.parse(req.body);
       const client = await storage.createClient(validatedData);
@@ -39,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/clients/:id", async (req, res) => {
+  app.patch("/api/clients/:id", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertClientSchema.partial().parse(req.body);
       const client = await storage.updateClient(req.params.id, validatedData);
@@ -55,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id", async (req, res) => {
+  app.delete("/api/clients/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteClient(req.params.id);
       if (!deleted) {
@@ -67,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/licenses", async (req, res) => {
+  app.get("/api/licenses", isAuthenticated, async (req, res) => {
     try {
       const licenses = await storage.getAllLicenses();
       res.json(licenses);
@@ -76,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/licenses/:id", async (req, res) => {
+  app.get("/api/licenses/:id", isAuthenticated, async (req, res) => {
     try {
       const license = await storage.getLicense(req.params.id);
       if (!license) {
@@ -88,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/licenses", async (req, res) => {
+  app.post("/api/licenses", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertLicenseSchema.parse(req.body);
       const license = await storage.createLicense(validatedData);
@@ -101,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/licenses/:id", async (req, res) => {
+  app.patch("/api/licenses/:id", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertLicenseSchema.partial().parse(req.body);
       const license = await storage.updateLicense(req.params.id, validatedData);
@@ -117,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/licenses/:id", async (req, res) => {
+  app.delete("/api/licenses/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteLicense(req.params.id);
       if (!deleted) {
@@ -129,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices", async (req, res) => {
+  app.get("/api/invoices", isAuthenticated, async (req, res) => {
     try {
       const invoices = await storage.getAllInvoices();
       res.json(invoices);
@@ -138,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/:id", async (req, res) => {
+  app.get("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -150,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/invoices", async (req, res) => {
+  app.post("/api/invoices", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertInvoiceSchema.parse(req.body);
       const invoice = await storage.createInvoice(validatedData);
@@ -163,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/invoices/:id", async (req, res) => {
+  app.patch("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertInvoiceSchema.partial().parse(req.body);
       const invoice = await storage.updateInvoice(req.params.id, validatedData);
@@ -179,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/invoices/:id", async (req, res) => {
+  app.delete("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteInvoice(req.params.id);
       if (!deleted) {
@@ -191,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stats/dashboard", async (req, res) => {
+  app.get("/api/stats/dashboard", isAuthenticated, async (req, res) => {
     try {
       const clients = await storage.getAllClients();
       const licenses = await storage.getAllLicenses();

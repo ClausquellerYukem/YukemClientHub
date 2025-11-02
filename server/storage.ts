@@ -1,7 +1,26 @@
-import { type Client, type InsertClient, type License, type InsertLicense, type Invoice, type InsertInvoice } from "@shared/schema";
-import { randomUUID } from "crypto";
+import {
+  type Client,
+  type InsertClient,
+  type License,
+  type InsertLicense,
+  type Invoice,
+  type InsertInvoice,
+  type User,
+  type UpsertUser,
+  users,
+  clients,
+  licenses,
+  invoices,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations - Required for Replit Auth
+  // Reference: blueprint:javascript_log_in_with_replit
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+
   getClient(id: string): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
   createClient(client: InsertClient): Promise<Client>;
@@ -23,128 +42,121 @@ export interface IStorage {
   deleteInvoice(id: string): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private clients: Map<string, Client>;
-  private licenses: Map<string, License>;
-  private invoices: Map<string, Invoice>;
+// Migrated from MemStorage to DatabaseStorage - Reference: blueprint:javascript_database
+export class DatabaseStorage implements IStorage {
+  // User operations - Required for Replit Auth
+  // Reference: blueprint:javascript_log_in_with_replit
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
 
-  constructor() {
-    this.clients = new Map();
-    this.licenses = new Map();
-    this.invoices = new Map();
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
   async getClient(id: string): Promise<Client | undefined> {
-    return this.clients.get(id);
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client;
   }
 
   async getAllClients(): Promise<Client[]> {
-    return Array.from(this.clients.values());
+    return await db.select().from(clients);
   }
 
   async createClient(insertClient: InsertClient): Promise<Client> {
-    const id = randomUUID();
-    const client: Client = {
-      ...insertClient,
-      id,
-      status: insertClient.status || "active",
-      createdAt: new Date(),
-    };
-    this.clients.set(id, client);
+    const [client] = await db.insert(clients).values(insertClient).returning();
     return client;
   }
 
   async updateClient(id: string, updates: Partial<InsertClient>): Promise<Client | undefined> {
-    const client = this.clients.get(id);
-    if (!client) return undefined;
-
-    const updated = { ...client, ...updates };
-    this.clients.set(id, updated);
-    return updated;
+    const [client] = await db
+      .update(clients)
+      .set(updates)
+      .where(eq(clients.id, id))
+      .returning();
+    return client;
   }
 
   async deleteClient(id: string): Promise<boolean> {
-    return this.clients.delete(id);
+    const result = await db.delete(clients).where(eq(clients.id, id)).returning();
+    return result.length > 0;
   }
 
   async getLicense(id: string): Promise<License | undefined> {
-    return this.licenses.get(id);
+    const [license] = await db.select().from(licenses).where(eq(licenses.id, id));
+    return license;
   }
 
   async getLicensesByClientId(clientId: string): Promise<License[]> {
-    return Array.from(this.licenses.values()).filter(
-      (license) => license.clientId === clientId
-    );
+    return await db.select().from(licenses).where(eq(licenses.clientId, clientId));
   }
 
   async getAllLicenses(): Promise<License[]> {
-    return Array.from(this.licenses.values());
+    return await db.select().from(licenses);
   }
 
   async createLicense(insertLicense: InsertLicense): Promise<License> {
-    const id = randomUUID();
-    const license: License = {
-      ...insertLicense,
-      id,
-      isActive: insertLicense.isActive !== undefined ? insertLicense.isActive : true,
-      activatedAt: new Date(),
-    };
-    this.licenses.set(id, license);
+    const [license] = await db.insert(licenses).values(insertLicense).returning();
     return license;
   }
 
   async updateLicense(id: string, updates: Partial<InsertLicense>): Promise<License | undefined> {
-    const license = this.licenses.get(id);
-    if (!license) return undefined;
-
-    const updated = { ...license, ...updates };
-    this.licenses.set(id, updated);
-    return updated;
+    const [license] = await db
+      .update(licenses)
+      .set(updates)
+      .where(eq(licenses.id, id))
+      .returning();
+    return license;
   }
 
   async deleteLicense(id: string): Promise<boolean> {
-    return this.licenses.delete(id);
+    const result = await db.delete(licenses).where(eq(licenses.id, id)).returning();
+    return result.length > 0;
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
-    return this.invoices.get(id);
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
   }
 
   async getInvoicesByClientId(clientId: string): Promise<Invoice[]> {
-    return Array.from(this.invoices.values()).filter(
-      (invoice) => invoice.clientId === clientId
-    );
+    return await db.select().from(invoices).where(eq(invoices.clientId, clientId));
   }
 
   async getAllInvoices(): Promise<Invoice[]> {
-    return Array.from(this.invoices.values());
+    return await db.select().from(invoices);
   }
 
   async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
-    const id = randomUUID();
-    const invoice: Invoice = {
-      ...insertInvoice,
-      id,
-      status: insertInvoice.status || "pending",
-      paidAt: insertInvoice.paidAt !== undefined ? insertInvoice.paidAt : null,
-      createdAt: new Date(),
-    };
-    this.invoices.set(id, invoice);
+    const [invoice] = await db.insert(invoices).values(insertInvoice).returning();
     return invoice;
   }
 
   async updateInvoice(id: string, updates: Partial<InsertInvoice>): Promise<Invoice | undefined> {
-    const invoice = this.invoices.get(id);
-    if (!invoice) return undefined;
-
-    const updated = { ...invoice, ...updates };
-    this.invoices.set(id, updated);
-    return updated;
+    const [invoice] = await db
+      .update(invoices)
+      .set(updates)
+      .where(eq(invoices.id, id))
+      .returning();
+    return invoice;
   }
 
   async deleteInvoice(id: string): Promise<boolean> {
-    return this.invoices.delete(id);
+    const result = await db.delete(invoices).where(eq(invoices.id, id)).returning();
+    return result.length > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
