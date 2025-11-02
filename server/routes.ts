@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema } from "@shared/schema";
+import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 
@@ -206,6 +206,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete invoice" });
+    }
+  });
+
+  app.get("/api/boleto/config", isAuthenticated, async (req, res) => {
+    try {
+      const config = await storage.getBoletoConfig();
+      res.json(config || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch boleto configuration" });
+    }
+  });
+
+  app.post("/api/boleto/config", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertBoletoConfigSchema.parse(req.body);
+      const config = await storage.saveBoletoConfig(validatedData);
+      res.json(config);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to save boleto configuration" });
+    }
+  });
+
+  app.post("/api/boleto/print/:id", isAuthenticated, async (req, res) => {
+    try {
+      const config = await storage.getBoletoConfig();
+      if (!config) {
+        return res.status(400).json({ error: "Configuração de boleto não encontrada. Configure primeiro." });
+      }
+
+      const invoiceId = req.params.id;
+      const boletoApiUrl = `http://51.222.16.165:3010/v1/boleto/${invoiceId}`;
+
+      const response = await fetch(boletoApiUrl, {
+        method: 'GET',
+        headers: {
+          'app_token': config.appToken,
+          'access_token': config.accessToken,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.status(response.status).json({ 
+          error: "Erro ao gerar boleto", 
+          details: errorText 
+        });
+      }
+
+      const boletoData = await response.json();
+      res.json(boletoData);
+    } catch (error) {
+      console.error("Error printing boleto:", error);
+      res.status(500).json({ error: "Failed to print boleto" });
     }
   });
 
