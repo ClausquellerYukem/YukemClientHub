@@ -161,3 +161,17 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return;
   }
 };
+
+export const isAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user.expires_at) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (user.role !== "admin") {
+    return res.status(403).json({ error: "Acesso negado. Apenas administradores podem realizar esta ação." });
+  }
+
+  next();
+};

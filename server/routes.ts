@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema } from "@shared/schema";
 import { z } from "zod";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/boleto/config", isAuthenticated, async (req, res) => {
+  app.post("/api/boleto/config", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const validatedData = insertBoletoConfigSchema.parse(req.body);
       const config = await storage.saveBoletoConfig(validatedData);
