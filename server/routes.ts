@@ -212,7 +212,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/boleto/config", isAuthenticated, async (req, res) => {
     try {
       const config = await storage.getBoletoConfig();
-      res.json(config || null);
+      if (!config) {
+        return res.json(null);
+      }
+      
+      const maskedConfig = {
+        ...config,
+        appToken: config.appToken ? `${config.appToken.substring(0, 4)}${"*".repeat(Math.max(0, config.appToken.length - 8))}${config.appToken.substring(Math.max(0, config.appToken.length - 4))}` : "",
+        accessToken: config.accessToken ? `${config.accessToken.substring(0, 4)}${"*".repeat(Math.max(0, config.accessToken.length - 8))}${config.accessToken.substring(Math.max(0, config.accessToken.length - 4))}` : "",
+      };
+      res.json(maskedConfig);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch boleto configuration" });
     }
@@ -251,6 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("Boleto API error:", errorText);
         return res.status(response.status).json({ 
           error: "Erro ao gerar boleto", 
           details: errorText 
@@ -258,10 +268,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const boletoData = await response.json();
+      
+      if (!boletoData || (!boletoData.url && !boletoData.pdf && !boletoData.link && !boletoData.base64 && !boletoData.pdfBase64)) {
+        console.error("Invalid boleto response:", boletoData);
+        return res.status(500).json({ 
+          error: "Resposta inválida da API de boletos",
+          details: "A API não retornou um link ou arquivo válido para o boleto" 
+        });
+      }
+
       res.json(boletoData);
     } catch (error) {
       console.error("Error printing boleto:", error);
-      res.status(500).json({ error: "Failed to print boleto" });
+      res.status(500).json({ error: "Falha ao conectar com a API de boletos" });
     }
   });
 

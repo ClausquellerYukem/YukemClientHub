@@ -20,8 +20,12 @@ import { Settings } from "lucide-react";
 import type { BoletoConfig } from "@shared/schema";
 
 const configSchema = z.object({
-  appToken: z.string().min(1, "Token da aplicação é obrigatório"),
-  accessToken: z.string().min(1, "Token de acesso é obrigatório"),
+  appToken: z.string().min(1, "Token da aplicação é obrigatório").refine((val) => !val.includes('*'), {
+    message: "Insira um token válido, não um valor mascarado",
+  }),
+  accessToken: z.string().min(1, "Token de acesso é obrigatório").refine((val) => !val.includes('*'), {
+    message: "Insira um token válido, não um valor mascarado",
+  }),
 });
 
 type ConfigFormData = z.infer<typeof configSchema>;
@@ -36,13 +40,9 @@ export default function BoletoConfig() {
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
     defaultValues: {
-      appToken: config?.appToken || "",
-      accessToken: config?.accessToken || "",
+      appToken: "",
+      accessToken: "",
     },
-    values: config ? {
-      appToken: config.appToken,
-      accessToken: config.accessToken,
-    } : undefined,
   });
 
   const saveMutation = useMutation({
@@ -96,6 +96,16 @@ export default function BoletoConfig() {
           </div>
           <CardDescription>
             Insira os tokens fornecidos pela API de boletos para habilitar a impressão
+            {config && (
+              <span className="block mt-2 text-xs">
+                ✓ Configuração existente: {config.appToken}
+              </span>
+            )}
+            {config && (
+              <span className="block mt-1 text-xs text-amber-600 dark:text-amber-400">
+                ⚠ Preencha os campos abaixo apenas se desejar atualizar as credenciais
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

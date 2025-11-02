@@ -60,18 +60,66 @@ export default function Financial() {
     mutationFn: async (invoiceId: string) => {
       return apiRequest("POST", `/api/boleto/print/${invoiceId}`, {});
     },
-    onSuccess: (data) => {
-      toast({
-        title: "Boleto gerado",
-        description: "O boleto foi gerado com sucesso.",
-      });
-      console.log("Boleto data:", data);
+    onSuccess: (data: any) => {
+      const urlField = data.url || data.link;
+      const pdfField = data.pdf;
+      const base64Field = data.base64 || data.pdfBase64;
+      
+      let urlToOpen = null;
+      if (urlField && (urlField.startsWith('http://') || urlField.startsWith('https://'))) {
+        urlToOpen = urlField;
+      } else if (pdfField && (pdfField.startsWith('http://') || pdfField.startsWith('https://'))) {
+        urlToOpen = pdfField;
+      }
+      
+      if (urlToOpen) {
+        window.open(urlToOpen, '_blank');
+        toast({
+          title: "Boleto gerado",
+          description: "O boleto foi aberto em uma nova aba.",
+        });
+      } else {
+        const base64Data = base64Field || pdfField || urlField;
+        
+        if (base64Data) {
+          try {
+            const cleanBase64 = base64Data.replace(/^data:application\/pdf;base64,/, '');
+            const byteCharacters = atob(cleanBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            toast({
+              title: "Boleto gerado",
+              description: "O boleto foi aberto em uma nova aba.",
+            });
+          } catch (error) {
+            console.error("Error decoding base64 PDF:", error);
+            toast({
+              title: "Erro",
+              description: "Não foi possível abrir o boleto PDF.",
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Boleto recebido",
+            description: "Verifique o console para detalhes do boleto.",
+          });
+          console.log("Boleto data:", data);
+        }
+      }
     },
     onError: (error: any) => {
       const errorMessage = error?.error || "Não foi possível gerar o boleto.";
+      const errorDetails = error?.details;
       toast({
         title: "Erro ao gerar boleto",
-        description: errorMessage,
+        description: errorDetails || errorMessage,
         variant: "destructive",
       });
     },
