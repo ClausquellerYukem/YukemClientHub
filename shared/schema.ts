@@ -59,6 +59,13 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const boletoConfig = pgTable("boleto_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appToken: text("app_token").notNull(),
+  accessToken: text("access_token").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
   createdAt: true,
@@ -74,6 +81,11 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   createdAt: true,
 });
 
+export const insertBoletoConfigSchema = createInsertSchema(boletoConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clients.$inferSelect;
 
@@ -82,6 +94,9 @@ export type License = typeof licenses.$inferSelect;
 
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Invoice = typeof invoices.$inferSelect;
+
+export type InsertBoletoConfig = z.infer<typeof insertBoletoConfigSchema>;
+export type BoletoConfig = typeof boletoConfig.$inferSelect;
 
 // User types - Required for Replit Auth
 // Reference: blueprint:javascript_log_in_with_replit
