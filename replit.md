@@ -8,6 +8,24 @@ The platform is built as a full-stack TypeScript application with a React fronte
 
 The application features complete authentication using Replit Auth (OpenID Connect), supporting multiple login methods including Google, GitHub, X, Apple, and email/password. All routes are protected and require authentication, with session management handled via PostgreSQL.
 
+## Recent Changes
+
+### Authentication System (Completed - Nov 2025)
+- **Complete Replit Auth integration** with OIDC support for Google, GitHub, X, Apple, and email/password
+- **Three-state AuthLayout**: Properly handles loading, unauthenticated (landing page), and authenticated (dashboard with sidebar) states
+- **Critical bug fix**: Custom `queryFn` in `useAuth` hook returns `null` on 401 instead of throwing error, preventing infinite loading state after logout
+- **Landing page** for unauthenticated users with feature showcase and login buttons
+- **Profile page** displaying user information with logout functionality
+- **Protected routes**: All API endpoints except login/logout/callback require authentication
+- **Session management**: PostgreSQL-backed sessions with connect-pg-simple (7-day TTL)
+- **E2E tested**: Full authentication flow verified from landing → login → dashboard → profile → logout → landing
+
+### Key Technical Solutions
+- `useAuth` hook uses custom `queryFn` that treats 401 as valid "not authenticated" state
+- `AuthLayout` component renders distinctly for three states to prevent UI flicker
+- Backend `isAuthenticated` middleware protects all routes except auth endpoints
+- User data automatically synced to PostgreSQL on login via `passport.js`
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
