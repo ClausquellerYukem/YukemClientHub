@@ -16,8 +16,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Settings } from "lucide-react";
-import type { BoletoConfig } from "@shared/schema";
+import { Settings, ShieldAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { BoletoConfig, User } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 const configSchema = z.object({
   appToken: z.string().min(1, "Token da aplicação é obrigatório").refine((val) => !val.includes('*'), {
@@ -32,10 +34,13 @@ type ConfigFormData = z.infer<typeof configSchema>;
 
 export default function BoletoConfig() {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: config, isLoading } = useQuery<BoletoConfig | null>({
     queryKey: ["/api/boleto/config"],
   });
+
+  const isAdmin = user?.role === "admin";
 
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
@@ -56,10 +61,11 @@ export default function BoletoConfig() {
         description: "As configurações do boleto foram salvas com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.error || "Não foi possível salvar as configurações.";
       toast({
         title: "Erro",
-        description: "Não foi possível salvar as configurações.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -109,8 +115,19 @@ export default function BoletoConfig() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {!isAdmin && (
+            <Alert data-testid="alert-not-admin">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertDescription>
+                Apenas administradores podem alterar as configurações de boleto. 
+                Entre em contato com um administrador se precisar atualizar as credenciais.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {isAdmin && (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="appToken"
@@ -164,6 +181,7 @@ export default function BoletoConfig() {
               </div>
             </form>
           </Form>
+          )}
         </CardContent>
       </Card>
     </div>
