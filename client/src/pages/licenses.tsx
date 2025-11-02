@@ -1,73 +1,85 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { LicensesTable } from "@/components/licenses-table";
 import { StatCard } from "@/components/stat-card";
 import { Key, CheckCircle, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { License, Client } from "@shared/schema";
 
 export default function Licenses() {
-  //todo: remove mock functionality
+  const { toast } = useToast();
+
+  const { data: licenses = [], isLoading: loadingLicenses } = useQuery<License[]>({
+    queryKey: ["/api/licenses"],
+  });
+
+  const { data: clients = [] } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiRequest("PATCH", `/api/licenses/${id}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
+      toast({
+        title: "Licença atualizada",
+        description: "O status da licença foi alterado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a licença.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const activeLicenses = licenses.filter(l => l.isActive).length;
+  const inactiveLicenses = licenses.filter(l => !l.isActive).length;
+
   const stats = [
     {
       title: "Total de Licenças",
-      value: "248",
+      value: licenses.length.toString(),
       icon: Key,
       testId: "stat-total-licenses",
     },
     {
       title: "Licenças Ativas",
-      value: "235",
+      value: activeLicenses.toString(),
       icon: CheckCircle,
       trend: { value: "8%", isPositive: true },
       testId: "stat-active-licenses",
     },
     {
       title: "Licenças Inativas",
-      value: "13",
+      value: inactiveLicenses.toString(),
       icon: XCircle,
       testId: "stat-inactive-licenses",
     },
   ];
 
-  const mockLicenses = [
-    {
-      id: "1",
-      clientName: "Tech Solutions Ltda",
-      licenseKey: "YUKEM-2024-TECH-XYZ123",
-      isActive: true,
-      activatedAt: "2024-01-15",
-      expiresAt: "2025-01-15",
-    },
-    {
-      id: "2",
-      clientName: "Comercial Santos",
-      licenseKey: "YUKEM-2024-SANTOS-ABC456",
-      isActive: true,
-      activatedAt: "2024-03-20",
-      expiresAt: "2025-03-20",
-    },
-    {
-      id: "3",
-      clientName: "Indústria Moderna",
-      licenseKey: "YUKEM-2024-TRIAL-DEF789",
-      isActive: false,
-      activatedAt: "2024-11-01",
-      expiresAt: "2024-12-01",
-    },
-    {
-      id: "4",
-      clientName: "Distribuidora ABC",
-      licenseKey: "YUKEM-2024-DIST-GHI012",
-      isActive: true,
-      activatedAt: "2024-02-10",
-      expiresAt: "2025-02-10",
-    },
-    {
-      id: "5",
-      clientName: "Logística Express",
-      licenseKey: "YUKEM-2024-LOG-JKL345",
-      isActive: false,
-      activatedAt: "2024-04-05",
-      expiresAt: "2024-10-05",
-    },
-  ];
+  const clientMap = new Map(clients.map(c => [c.id, c.companyName]));
+
+  const formattedLicenses = licenses.map(license => ({
+    id: license.id,
+    clientName: clientMap.get(license.clientId) || "Cliente não encontrado",
+    licenseKey: license.licenseKey,
+    isActive: license.isActive,
+    activatedAt: license.activatedAt.toString(),
+    expiresAt: license.expiresAt.toString(),
+  }));
+
+  if (loadingLicenses) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Carregando licenças...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -85,8 +97,8 @@ export default function Licenses() {
       </div>
 
       <LicensesTable
-        licenses={mockLicenses}
-        onToggle={(id, isActive) => console.log("Toggle license:", id, isActive)}
+        licenses={formattedLicenses}
+        onToggle={(id, isActive) => toggleMutation.mutate({ id, isActive })}
         onView={(id) => console.log("View license:", id)}
       />
     </div>

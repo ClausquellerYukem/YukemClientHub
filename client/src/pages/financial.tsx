@@ -1,72 +1,64 @@
+import { useQuery } from "@tanstack/react-query";
 import { InvoicesTable } from "@/components/invoices-table";
 import { StatCard } from "@/components/stat-card";
 import { DollarSign, TrendingUp, AlertCircle } from "lucide-react";
+import type { Invoice, Client } from "@shared/schema";
 
 export default function Financial() {
-  //todo: remove mock functionality
+  const { data: invoices = [], isLoading: loadingInvoices } = useQuery<Invoice[]>({
+    queryKey: ["/api/invoices"],
+  });
+
+  const { data: clients = [] } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+  });
+
+  const paidInvoices = invoices.filter(i => i.status === "paid");
+  const pendingInvoices = invoices.filter(i => i.status === "pending");
+  const totalRevenue = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+
   const stats = [
     {
       title: "Receita Total",
-      value: "R$ 324.5K",
+      value: `R$ ${(totalRevenue / 1000).toFixed(1)}K`,
       icon: DollarSign,
       trend: { value: "23%", isPositive: true },
       testId: "stat-total-revenue",
     },
     {
       title: "Faturas Pagas",
-      value: "218",
+      value: paidInvoices.length.toString(),
       icon: TrendingUp,
       trend: { value: "15%", isPositive: true },
       testId: "stat-paid-invoices",
     },
     {
       title: "Pendentes",
-      value: "30",
+      value: pendingInvoices.length.toString(),
       icon: AlertCircle,
       trend: { value: "5%", isPositive: false },
       testId: "stat-pending-invoices",
     },
   ];
 
-  const mockInvoices = [
-    {
-      id: "001",
-      clientName: "Tech Solutions Ltda",
-      amount: 2500.00,
-      dueDate: "2024-12-15",
-      paidAt: "2024-12-10",
-      status: "paid" as const,
-    },
-    {
-      id: "002",
-      clientName: "Comercial Santos",
-      amount: 1200.00,
-      dueDate: "2024-12-20",
-      status: "pending" as const,
-    },
-    {
-      id: "003",
-      clientName: "Indústria Moderna",
-      amount: 500.00,
-      dueDate: "2024-11-30",
-      status: "overdue" as const,
-    },
-    {
-      id: "004",
-      clientName: "Distribuidora ABC",
-      amount: 1500.00,
-      dueDate: "2024-12-18",
-      paidAt: "2024-12-12",
-      status: "paid" as const,
-    },
-    {
-      id: "005",
-      clientName: "Logística Express",
-      amount: 3000.00,
-      dueDate: "2024-12-25",
-      status: "pending" as const,
-    },
-  ];
+  const clientMap = new Map(clients.map(c => [c.id, c.companyName]));
+
+  const formattedInvoices = invoices.map(invoice => ({
+    id: invoice.id,
+    clientName: clientMap.get(invoice.clientId) || "Cliente não encontrado",
+    amount: parseFloat(invoice.amount),
+    dueDate: invoice.dueDate.toString(),
+    paidAt: invoice.paidAt?.toString(),
+    status: invoice.status as "paid" | "pending" | "overdue",
+  }));
+
+  if (loadingInvoices) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Carregando financeiro...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -84,7 +76,7 @@ export default function Financial() {
       </div>
 
       <InvoicesTable
-        invoices={mockInvoices}
+        invoices={formattedInvoices}
         onView={(id) => console.log("View invoice:", id)}
       />
     </div>

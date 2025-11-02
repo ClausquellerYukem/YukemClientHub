@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { ClientsTable } from "@/components/clients-table";
 import { ClientForm } from "@/components/client-form";
 import { Button } from "@/components/ui/button";
@@ -9,58 +10,76 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Client } from "@shared/schema";
 
 export default function Clients() {
   const [showForm, setShowForm] = useState(false);
+  const { toast } = useToast();
 
-  //todo: remove mock functionality
-  const mockClients = [
-    {
-      id: "1",
-      companyName: "Tech Solutions Ltda",
-      contactName: "João Silva",
-      email: "joao@techsolutions.com",
-      plan: "Enterprise",
-      status: "active" as const,
-      monthlyValue: 2500.00,
+  const { data: clients = [], isLoading } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/clients", data);
     },
-    {
-      id: "2",
-      companyName: "Comercial Santos",
-      contactName: "Maria Santos",
-      email: "maria@santos.com.br",
-      plan: "Professional",
-      status: "active" as const,
-      monthlyValue: 1200.00,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setShowForm(false);
+      toast({
+        title: "Cliente criado",
+        description: "O cliente foi adicionado com sucesso.",
+      });
     },
-    {
-      id: "3",
-      companyName: "Indústria Moderna",
-      contactName: "Carlos Oliveira",
-      email: "carlos@moderna.com",
-      plan: "Basic",
-      status: "trial" as const,
-      monthlyValue: 500.00,
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o cliente.",
+        variant: "destructive",
+      });
     },
-    {
-      id: "4",
-      companyName: "Distribuidora ABC",
-      contactName: "Ana Costa",
-      email: "ana@abc.com.br",
-      plan: "Professional",
-      status: "active" as const,
-      monthlyValue: 1500.00,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/clients/${id}`);
     },
-    {
-      id: "5",
-      companyName: "Logística Express",
-      contactName: "Pedro Alves",
-      email: "pedro@logistica.com",
-      plan: "Enterprise",
-      status: "inactive" as const,
-      monthlyValue: 3000.00,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      toast({
+        title: "Cliente excluído",
+        description: "O cliente foi removido com sucesso.",
+      });
     },
-  ];
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o cliente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const formattedClients = clients.map(client => ({
+    id: client.id,
+    companyName: client.companyName,
+    contactName: client.contactName,
+    email: client.email,
+    plan: client.plan,
+    status: client.status as "active" | "inactive" | "trial",
+    monthlyValue: parseFloat(client.monthlyValue),
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Carregando clientes...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -78,10 +97,10 @@ export default function Clients() {
       </div>
 
       <ClientsTable
-        clients={mockClients}
+        clients={formattedClients}
         onView={(id) => console.log("View client:", id)}
         onEdit={(id) => console.log("Edit client:", id)}
-        onDelete={(id) => console.log("Delete client:", id)}
+        onDelete={(id) => deleteMutation.mutate(id)}
       />
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
@@ -90,10 +109,7 @@ export default function Clients() {
             <DialogTitle>Novo Cliente</DialogTitle>
           </DialogHeader>
           <ClientForm
-            onSubmit={(data) => {
-              console.log("Client created:", data);
-              setShowForm(false);
-            }}
+            onSubmit={(data) => createMutation.mutate(data)}
             onCancel={() => setShowForm(false)}
           />
         </DialogContent>
