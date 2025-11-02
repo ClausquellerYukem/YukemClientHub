@@ -13,6 +13,7 @@ import Clients from "@/pages/clients";
 import Financial from "@/pages/financial";
 import Licenses from "@/pages/licenses";
 import Profile from "@/pages/profile";
+import BoletoConfig from "@/pages/boleto-config";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -43,6 +44,7 @@ function Router() {
           <Route path="/clientes" component={Clients} />
           <Route path="/financeiro" component={Financial} />
           <Route path="/licencas" component={Licenses} />
+          <Route path="/configuracoes" component={BoletoConfig} />
           <Route path="/perfil" component={Profile} />
         </>
       )}
