@@ -26,6 +26,14 @@ The application features complete authentication using Replit Auth (OpenID Conne
 - Backend `isAuthenticated` middleware protects all routes except auth endpoints
 - User data automatically synced to PostgreSQL on login via `passport.js`
 
+### Client Management Features (Completed - Nov 2025)
+- **Soft Delete Implementation**: DELETE endpoint now changes client status to "inactive" instead of removing from database
+- **View Client Details**: Dialog showing complete client information with icons for each field
+- **Edit Client**: Dialog with pre-populated form using ClientForm component with initialData support
+- **Deactivate Confirmation**: AlertDialog requiring confirmation before marking client as inactive
+- **Status Management**: Clients can have "active", "inactive", or "trial" status with colored badges
+- **E2E Tested**: All CRUD operations verified including soft delete workflow
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
