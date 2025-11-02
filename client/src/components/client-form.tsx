@@ -35,13 +35,22 @@ type ClientFormValues = z.infer<typeof clientFormSchema>;
 interface ClientFormProps {
   onSubmit: (data: ClientFormValues) => void;
   onCancel: () => void;
-  defaultValues?: Partial<ClientFormValues>;
+  initialData?: any;
 }
 
-export function ClientForm({ onSubmit, onCancel, defaultValues }: ClientFormProps) {
+export function ClientForm({ onSubmit, onCancel, initialData }: ClientFormProps) {
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
-    defaultValues: defaultValues || {
+    defaultValues: initialData ? {
+      companyName: initialData.companyName || "",
+      contactName: initialData.contactName || "",
+      email: initialData.email || "",
+      phone: initialData.phone || "",
+      cnpj: initialData.cnpj || "",
+      plan: initialData.plan || "",
+      monthlyValue: initialData.monthlyValue || "",
+      status: initialData.status || "active",
+    } : {
       companyName: "",
       contactName: "",
       email: "",

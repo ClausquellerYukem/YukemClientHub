@@ -74,13 +74,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/clients/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteClient(req.params.id);
-      if (!deleted) {
+      // Soft delete - mark as inactive instead of deleting
+      const client = await storage.updateClient(req.params.id, { status: "inactive" });
+      if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
-      res.status(204).send();
+      res.json(client);
     } catch (error) {
-      res.status(500).json({ error: "Failed to delete client" });
+      res.status(500).json({ error: "Failed to deactivate client" });
     }
   });
 
