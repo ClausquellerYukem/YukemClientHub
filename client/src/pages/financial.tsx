@@ -1,10 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { InvoicesTable } from "@/components/invoices-table";
 import { StatCard } from "@/components/stat-card";
 import { DollarSign, TrendingUp, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { Invoice, Client } from "@shared/schema";
 
 export default function Financial() {
+  const { toast } = useToast();
+
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
   });
@@ -52,6 +56,31 @@ export default function Financial() {
     status: invoice.status as "paid" | "pending" | "overdue",
   }));
 
+  const printBoletoMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      return apiRequest("POST", `/api/boleto/print/${invoiceId}`, {});
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Boleto gerado",
+        description: "O boleto foi gerado com sucesso.",
+      });
+      console.log("Boleto data:", data);
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.error || "Não foi possível gerar o boleto.";
+      toast({
+        title: "Erro ao gerar boleto",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePrintBoleto = (invoiceId: string) => {
+    printBoletoMutation.mutate(invoiceId);
+  };
+
   if (loadingInvoices) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -78,6 +107,7 @@ export default function Financial() {
       <InvoicesTable
         invoices={formattedInvoices}
         onView={(id) => console.log("View invoice:", id)}
+        onPrintBoleto={handlePrintBoleto}
       />
     </div>
   );

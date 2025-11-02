@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, Printer } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,9 +31,10 @@ interface Invoice {
 interface InvoicesTableProps {
   invoices: Invoice[];
   onView?: (id: string) => void;
+  onPrintBoleto?: (id: string) => void;
 }
 
-export function InvoicesTable({ invoices, onView }: InvoicesTableProps) {
+export function InvoicesTable({ invoices, onView, onPrintBoleto }: InvoicesTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -115,14 +116,24 @@ export function InvoicesTable({ invoices, onView }: InvoicesTableProps) {
                 </TableCell>
                 <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onView?.(invoice.id)}
-                    data-testid={`button-view-${invoice.id}`}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onView?.(invoice.id)}
+                      data-testid={`button-view-${invoice.id}`}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onPrintBoleto?.(invoice.id)}
+                      data-testid={`button-print-boleto-${invoice.id}`}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
