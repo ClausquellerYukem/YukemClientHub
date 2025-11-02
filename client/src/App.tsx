@@ -71,8 +71,21 @@ export default function App() {
 function AuthLayout({ style }: { style: Record<string, string> }) {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-full">
+        <div className="space-y-4 w-full max-w-md p-8">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      </div>
+    );
+  }
+
   // Show landing page for non-authenticated users (no sidebar)
-  if (!isLoading && !isAuthenticated) {
+  if (!isAuthenticated) {
     return <Router />;
   }
 

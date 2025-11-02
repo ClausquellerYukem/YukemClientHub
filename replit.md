@@ -6,6 +6,8 @@ Yukem is a white label client management platform designed for representatives m
 
 The platform is built as a full-stack TypeScript application with a React frontend and Express backend, utilizing PostgreSQL for data persistence through Drizzle ORM. It follows modern design patterns inspired by Linear, Stripe Dashboard, and Vercel's data-centric interfaces.
 
+The application features complete authentication using Replit Auth (OpenID Connect), supporting multiple login methods including Google, GitHub, X, Apple, and email/password. All routes are protected and require authentication, with session management handled via PostgreSQL.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
