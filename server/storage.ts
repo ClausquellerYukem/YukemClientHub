@@ -7,10 +7,13 @@ import {
   type InsertInvoice,
   type User,
   type UpsertUser,
+  type BoletoConfig,
+  type InsertBoletoConfig,
   users,
   clients,
   licenses,
   invoices,
+  boletoConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -40,6 +43,9 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
   deleteInvoice(id: string): Promise<boolean>;
+
+  getBoletoConfig(): Promise<BoletoConfig | undefined>;
+  saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig>;
 }
 
 // Migrated from MemStorage to DatabaseStorage - Reference: blueprint:javascript_database
@@ -156,6 +162,27 @@ export class DatabaseStorage implements IStorage {
   async deleteInvoice(id: string): Promise<boolean> {
     const result = await db.delete(invoices).where(eq(invoices.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getBoletoConfig(): Promise<BoletoConfig | undefined> {
+    const configs = await db.select().from(boletoConfig).limit(1);
+    return configs[0];
+  }
+
+  async saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig> {
+    const existing = await this.getBoletoConfig();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(boletoConfig)
+        .set({ ...config, updatedAt: new Date() })
+        .where(eq(boletoConfig.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(boletoConfig).values(config).returning();
+      return created;
+    }
   }
 }
 
