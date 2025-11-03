@@ -15,6 +15,16 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Companies table - Multi-tenant support
+export const companies = pgTable("companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  logoUrl: varchar("logo_url"),
+  status: varchar("status").notNull().default("active"), // 'active', 'inactive'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // User storage table - Required for Replit Auth
 // Reference: blueprint:javascript_log_in_with_replit
 export const users = pgTable("users", {
@@ -24,12 +34,22 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("user"),
+  activeCompanyId: varchar("active_company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User-Company association table - Multi-tenant support
+export const userCompanies = pgTable("user_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const clients = pgTable("clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
   companyName: text("company_name").notNull(),
   contactName: text("contact_name").notNull(),
   email: text("email").notNull(),
@@ -43,6 +63,7 @@ export const clients = pgTable("clients", {
 
 export const licenses = pgTable("licenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
   clientId: varchar("client_id").notNull().references(() => clients.id),
   licenseKey: text("license_key").notNull().unique(),
   isActive: boolean("is_active").notNull().default(true),
@@ -52,6 +73,7 @@ export const licenses = pgTable("licenses", {
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
   clientId: varchar("client_id").notNull().references(() => clients.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   dueDate: timestamp("due_date").notNull(),
@@ -62,6 +84,7 @@ export const invoices = pgTable("invoices", {
 
 export const boletoConfig = pgTable("boleto_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
   appToken: text("app_token").notNull(),
   accessToken: text("access_token").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -131,6 +154,24 @@ export type BoletoConfig = typeof boletoConfig.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Company schemas and types - Multi-tenant support
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserCompanySchema = createInsertSchema(userCompanies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type Company = typeof companies.$inferSelect;
+
+export type InsertUserCompany = z.infer<typeof insertUserCompanySchema>;
+export type UserCompany = typeof userCompanies.$inferSelect;
+
 // RBAC schemas and types
 export const insertRoleSchema = createInsertSchema(roles).omit({
   id: true,
@@ -157,7 +198,7 @@ export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
 export type RolePermission = typeof rolePermissions.$inferSelect;
 
 // Permission resource types
-export const resourceSchema = z.enum(['clients', 'licenses', 'invoices', 'boleto_config']);
+export const resourceSchema = z.enum(['clients', 'licenses', 'invoices', 'boleto_config', 'companies']);
 export type Resource = z.infer<typeof resourceSchema>;
 
 // Permission action types
