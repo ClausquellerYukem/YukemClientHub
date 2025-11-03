@@ -717,6 +717,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!companyId) {
         return res.status(400).json({ error: "companyId is required" });
       }
+      
+      // SECURITY: Verify user has access to this company before setting as active
+      const userCompanies = await storage.getUserCompanies(userId);
+      const hasAccess = userCompanies.some(c => c.id === companyId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "User does not have access to this company" });
+      }
 
       const user = await storage.setActiveCompany(userId, companyId);
       res.json(user);
