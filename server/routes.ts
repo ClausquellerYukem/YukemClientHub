@@ -75,22 +75,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         payload.monthlyValue = null;
       }
       
-      console.log("[POST /api/clients] Request payload:", JSON.stringify(payload, null, 2));
-      const validatedData = insertClientSchema.parse(payload);
-      
-      // Enforce company isolation: overwrite companyId for non-admin users
+      // Add companyId to payload BEFORE validation (required field)
       if (companyId) {
-        validatedData.companyId = companyId;
+        payload.companyId = companyId;
       }
+      
+      const validatedData = insertClientSchema.parse(payload);
       
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.log("[POST /api/clients] Validation errors:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ error: "Invalid data", details: error.errors });
       }
-      console.error("[POST /api/clients] Error:", error);
       res.status(500).json({ error: "Failed to create client" });
     }
   });
