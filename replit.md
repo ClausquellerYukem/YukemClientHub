@@ -87,6 +87,42 @@ The application features complete authentication using Replit Auth (OpenID Conne
   - Migration of existing users: All users automatically assigned to appropriate roles on first load
 - **Production-Ready**: Comprehensive authorization coverage with no security gaps, E2E tested
 
+### Company Registration with Invoice/Contract Generation (Completed - Nov 2025)
+- **Complete Company Profile**: Expanded company schema to include all data necessary for generating invoices and contracts
+- **Tax & Registration Data**:
+  - CNPJ (Cadastro Nacional da Pessoa Jurídica)
+  - State Registration (Inscrição Estadual)
+  - City Registration (Inscrição Municipal)
+- **Full Address Information**:
+  - Street (Logradouro)
+  - Number
+  - Complement
+  - District (Bairro)
+  - City
+  - State
+  - ZIP Code (CEP)
+- **Financial Configuration**:
+  - Monthly Value: Base service charge for the company
+  - Revenue Share Percentage: Percentage applied to client monthly charges (e.g., 40%)
+  - Free License Quota: Number of licenses provided free before charging begins (e.g., 10)
+- **Automated Revenue Calculation**:
+  - First X licenses (up to freeLicenseQuota): Free (R$ 0)
+  - Licenses beyond quota: Charged at (client monthly value × revenue share percentage)
+  - Example: 10 free licenses, client pays R$ 100/month, 40% revenue share
+    - Licenses 1-10: R$ 0 each
+    - License 11+: R$ 40 each (40% of R$ 100)
+  - Dashboard automatically calculates and displays total monthly revenue based on active licenses
+- **Enhanced UI**:
+  - Form organized into three tabs: Dados Cadastrais (Registration), Endereço (Address), Financeiro (Financial)
+  - Real-time calculation example displayed in financial tab
+  - Table view shows key financial metrics: CNPJ, City, Free Licenses, Revenue Share %
+- **Backend Implementation**:
+  - `/api/stats/dashboard` endpoint updated with new revenue calculation logic
+  - Groups active licenses by client
+  - Applies free license quota per client
+  - Calculates revenue as: (paid_licenses × client_monthly_value × revenue_share_percentage / 100)
+- **Database Migration**: All new fields added to companies table via Drizzle Kit with nullable constraints for backward compatibility
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

@@ -518,13 +518,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companyId = await getCompanyIdForUser(req);
       const clients = await storage.getAllClients(companyId);
       const licenses = await storage.getAllLicenses(companyId);
-      const invoices = await storage.getAllInvoices(companyId);
+      
+      // Get company details for revenue calculation
+      const company = companyId ? await storage.getCompany(companyId) : null;
 
       const activeClients = clients.filter(c => c.status === "active").length;
       const activeLicenses = licenses.filter(l => l.isActive).length;
       
-      const paidInvoices = invoices.filter(i => i.status === "paid");
-      const monthlyRevenue = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+      // New revenue calculation logic based on free license quota and revenue share percentage
+      let monthlyRevenue = 0;
+      
+      if (company) {
+        // Safely parse financial fields with defaults to prevent NaN
+        const freeLicenseQuota = company.freeLicenseQuota 
+          ? parseFloat(company.freeLicenseQuota) 
+          : 0;
+        const revenueSharePercentage = company.revenueSharePercentage 
+          ? parseFloat(company.revenueSharePercentage) 
+          : 0;
+        
+        // Only calculate if revenue share is configured
+        if (revenueSharePercentage > 0) {
+          // Group licenses by client
+          const licensesByClient = new Map<string, number>();
+          licenses.filter(l => l.isActive).forEach(license => {
+            const count = licensesByClient.get(license.clientId) || 0;
+            licensesByClient.set(license.clientId, count + 1);
+          });
+          
+          // Calculate revenue for each client
+          licensesByClient.forEach((licensesCount, clientId) => {
+            const client = clients.find(c => c.id === clientId);
+            if (client && client.monthlyValue) {
+              const clientMonthlyValue = parseFloat(client.monthlyValue);
+              
+              // Guard against NaN from invalid client monthly value
+              if (!isNaN(clientMonthlyValue) && clientMonthlyValue > 0) {
+                // Calculate paid licenses (licenses above free quota)
+                const paidLicenses = Math.max(0, licensesCount - freeLicenseQuota);
+                
+                // Revenue = paid licenses × client monthly value × revenue share percentage
+                const clientRevenue = paidLicenses * clientMonthlyValue * (revenueSharePercentage / 100);
+                monthlyRevenue += clientRevenue;
+              }
+            }
+          });
+        }
+      }
 
       const stats = {
         totalClients: clients.length,
