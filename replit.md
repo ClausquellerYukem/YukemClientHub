@@ -56,3 +56,21 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
 **Utility Libraries**
 - `date-fns`: Date utility library.
 - `nanoid`: Secure unique ID generator.
+
+## Recent Implementations
+
+### Company Selector for Multi-Tenant Context (Completed - Nov 2025)
+- **Active Company Selection**: Users can select which company they're working with from the header
+- **Visual Component**: CompanySelector displayed in app header next to theme toggle
+  - Dropdown selector when user has multiple companies
+  - Read-only display showing company name when user has single company
+  - Building icon (lucide-react) for visual identification
+- **Backend Security**: PATCH /api/user/active-company endpoint
+  - Validates user has access to requested company before updating
+  - Returns 403 Forbidden if unauthorized access attempted
+  - Prevents privilege escalation across tenant boundaries
+- **Automatic Cache Invalidation**: Refreshes all relevant data after company switch
+  - User profile, clients list, licenses, invoices, dashboard statistics
+- **Toast Notifications**: User feedback when company successfully changed
+- **Data Isolation**: All create operations use user's activeCompanyId
+  - Fixes "erro ao salvar cliente" - client creation now works with proper company context
