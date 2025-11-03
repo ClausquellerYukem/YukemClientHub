@@ -68,7 +68,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/clients", isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
-      const validatedData = insertClientSchema.parse(req.body);
+      
+      // Convert empty strings to null for numeric fields (same fix as companies)
+      const payload = { ...req.body };
+      if (payload.monthlyValue === "") {
+        payload.monthlyValue = null;
+      }
+      
+      console.log("[POST /api/clients] Request payload:", JSON.stringify(payload, null, 2));
+      const validatedData = insertClientSchema.parse(payload);
       
       // Enforce company isolation: overwrite companyId for non-admin users
       if (companyId) {
@@ -79,8 +87,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.log("[POST /api/clients] Validation errors:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ error: "Invalid data", details: error.errors });
       }
+      console.error("[POST /api/clients] Error:", error);
       res.status(500).json({ error: "Failed to create client" });
     }
   });
