@@ -67,7 +67,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
-      const companyId = await getCompanyIdForUser(req);
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      const user = await storage.getUser(userId);
       
       // Convert empty strings to null for numeric fields (same fix as companies)
       const payload = { ...req.body };
@@ -75,23 +77,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         payload.monthlyValue = null;
       }
       
-      // Add companyId to payload BEFORE validation (required field)
-      if (companyId) {
-        payload.companyId = companyId;
+      // For client creation, use activeCompanyId even for admins
+      // Unlike read operations where admins can see all companies,
+      // creation requires a specific company context
+      const companyId = user?.activeCompanyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "User must have an active company set" });
       }
       
-      console.log("[POST /api/clients] Payload after companyId:", JSON.stringify(payload, null, 2));
+      payload.companyId = companyId;
+      
       const validatedData = insertClientSchema.parse(payload);
-      console.log("[POST /api/clients] Validation successful, creating client...");
       
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("[POST /api/clients] Validation failed:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ error: "Invalid data", details: error.errors });
       }
-      console.error("[POST /api/clients] Unexpected error:", error);
       res.status(500).json({ error: "Failed to create client" });
     }
   });
