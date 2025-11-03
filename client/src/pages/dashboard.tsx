@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { StatCard } from "@/components/stat-card";
 import { RevenueChart } from "@/components/revenue-chart";
 import { Users, Key, CreditCard, TrendingUp } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface DashboardStats {
   totalClients: number;
@@ -14,6 +16,24 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats/dashboard"],
   });
+
+  // Automatic license blocking - Check overdue invoices on dashboard load
+  const checkOverdueMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/licenses/check-overdue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to check overdue licenses");
+      return response.json();
+    },
+  });
+
+  // Run overdue check when dashboard loads
+  useEffect(() => {
+    checkOverdueMutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   //todo: remove mock functionality - replace with real revenue data from API
   const revenueData = [

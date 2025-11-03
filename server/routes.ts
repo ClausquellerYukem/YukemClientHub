@@ -252,6 +252,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!invoice) {
         return res.status(404).json({ error: "Invoice not found" });
       }
+      
+      // Automatic license control: if invoice is marked as paid, check if client has other overdue invoices
+      if (validatedData.status === 'paid' && invoice.clientId) {
+        // Get all invoices for this client
+        const clientInvoices = await storage.getInvoicesByClientId(invoice.clientId);
+        const now = new Date();
+        
+        // Check if client has any other overdue unpaid invoices
+        const hasOtherOverdue = clientInvoices.some(
+          inv => inv.id !== invoice.id && 
+                 inv.status !== 'paid' && 
+                 inv.dueDate && 
+                 new Date(inv.dueDate) < now
+        );
+        
+        // Only unblock if client has no other overdue invoices
+        if (!hasOtherOverdue) {
+          await storage.unblockClientLicenses(invoice.clientId);
+        }
+        // If client still has overdue invoices, keep licenses blocked
+      }
+      
       res.json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -271,6 +293,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete invoice" });
+    }
+  });
+
+  // Automatic license blocking - Check overdue invoices and block/unblock licenses
+  app.post("/api/licenses/check-overdue", isAuthenticated, async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const result = await storage.checkAndBlockOverdueLicenses(companyId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking overdue licenses:", error);
+      res.status(500).json({ error: "Failed to check overdue licenses" });
     }
   });
 

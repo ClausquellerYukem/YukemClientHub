@@ -33,7 +33,7 @@ import {
   userCompanies,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, lt, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations - Required for Replit Auth
@@ -53,6 +53,11 @@ export interface IStorage {
   createLicense(license: InsertLicense): Promise<License>;
   updateLicense(id: string, license: Partial<InsertLicense>, companyId?: string): Promise<License | undefined>;
   deleteLicense(id: string, companyId?: string): Promise<boolean>;
+  
+  // License blocking operations (automatic payment control)
+  blockClientLicenses(clientId: string): Promise<number>;
+  unblockClientLicenses(clientId: string): Promise<number>;
+  checkAndBlockOverdueLicenses(companyId?: string): Promise<{ blocked: number; unblocked: number }>;
 
   getInvoice(id: string, companyId?: string): Promise<Invoice | undefined>;
   getInvoicesByClientId(clientId: string): Promise<Invoice[]>;
@@ -267,6 +272,69 @@ export class DatabaseStorage implements IStorage {
     }
     const result = await db.delete(licenses).where(and(...conditions)).returning();
     return result.length > 0;
+  }
+
+  // License blocking operations - Automatic payment control
+  async blockClientLicenses(clientId: string): Promise<number> {
+    const result = await db
+      .update(licenses)
+      .set({ isActive: false })
+      .where(eq(licenses.clientId, clientId))
+      .returning();
+    return result.length;
+  }
+
+  async unblockClientLicenses(clientId: string): Promise<number> {
+    const result = await db
+      .update(licenses)
+      .set({ isActive: true })
+      .where(eq(licenses.clientId, clientId))
+      .returning();
+    return result.length;
+  }
+
+  async checkAndBlockOverdueLicenses(companyId?: string): Promise<{ blocked: number; unblocked: number }> {
+    const now = new Date();
+    let blocked = 0;
+    let unblocked = 0;
+
+    // Get all invoices (filtered by company if provided)
+    const allInvoices = await this.getAllInvoices(companyId);
+    
+    // Get all clients (filtered by company if provided)
+    const allClients = await this.getAllClients(companyId);
+
+    // Group clients by payment status
+    const clientsWithOverdueInvoices = new Set<string>();
+    const clientsWithoutOverdueInvoices = new Set<string>();
+
+    // Check each client's invoices
+    for (const client of allClients) {
+      const clientInvoices = allInvoices.filter(inv => inv.clientId === client.id);
+      
+      // Check if client has any overdue unpaid invoices
+      const hasOverdue = clientInvoices.some(
+        inv => inv.status !== 'paid' && inv.dueDate && new Date(inv.dueDate) < now
+      );
+
+      if (hasOverdue) {
+        clientsWithOverdueInvoices.add(client.id);
+      } else {
+        clientsWithoutOverdueInvoices.add(client.id);
+      }
+    }
+
+    // Block licenses for clients with overdue invoices
+    for (const clientId of Array.from(clientsWithOverdueInvoices)) {
+      blocked += await this.blockClientLicenses(clientId);
+    }
+
+    // Unblock licenses for clients without overdue invoices
+    for (const clientId of Array.from(clientsWithoutOverdueInvoices)) {
+      unblocked += await this.unblockClientLicenses(clientId);
+    }
+
+    return { blocked, unblocked };
   }
 
   async getInvoice(id: string, companyId?: string): Promise<Invoice | undefined> {
