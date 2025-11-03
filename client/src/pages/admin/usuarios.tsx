@@ -138,26 +138,27 @@ export default function UsuariosPage() {
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-2">
                       {user.roles && user.roles.length > 0 ? (
                         user.roles.map((role) => (
-                          <Badge
-                            key={role.id}
-                            variant={role.name === "admin" ? "default" : "secondary"}
-                            className="gap-1"
-                            data-testid={`badge-role-${role.name}`}
-                          >
-                            {role.name}
-                            {!role.isSystem && (
-                              <button
-                                onClick={() => handleRemoveRole(user.id, role.id)}
-                                className="ml-1 hover:text-destructive"
-                                data-testid={`button-remove-role-${role.id}`}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            )}
-                          </Badge>
+                          <div key={role.id} className="flex items-center gap-1">
+                            <Badge
+                              variant={role.name === "admin" ? "default" : "secondary"}
+                              data-testid={`badge-role-${role.name}`}
+                            >
+                              {role.name}
+                            </Badge>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleRemoveRole(user.id, role.id)}
+                              className="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+                              data-testid={`button-remove-role-${role.id}`}
+                              disabled={removeRoleMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         ))
                       ) : (
                         <span className="text-muted-foreground text-sm">Nenhum role</span>
