@@ -289,22 +289,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBoletoConfig(companyId?: string): Promise<BoletoConfig | undefined> {
-    if (companyId) {
-      const [config] = await db.select().from(boletoConfig).where(eq(boletoConfig.companyId, companyId)).limit(1);
-      return config;
+    if (!companyId) {
+      throw new Error('companyId is required to fetch boleto config');
     }
-    const configs = await db.select().from(boletoConfig).limit(1);
-    return configs[0];
+    const [config] = await db.select().from(boletoConfig).where(eq(boletoConfig.companyId, companyId)).limit(1);
+    return config;
   }
 
   async saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig> {
-    const existing = await db.select().from(boletoConfig).where(eq(boletoConfig.companyId, config.companyId!)).limit(1);
+    if (!config.companyId) {
+      throw new Error('companyId is required to save boleto config');
+    }
     
-    if (existing) {
+    const [existingRecord] = await db.select().from(boletoConfig).where(eq(boletoConfig.companyId, config.companyId)).limit(1);
+    
+    if (existingRecord) {
       const [updated] = await db
         .update(boletoConfig)
         .set({ ...config, updatedAt: new Date() })
-        .where(eq(boletoConfig.id, existing.id))
+        .where(eq(boletoConfig.id, existingRecord.id))
         .returning();
       return updated;
     } else {

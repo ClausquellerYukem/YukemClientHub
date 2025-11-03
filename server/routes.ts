@@ -5,6 +5,26 @@ import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBol
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replitAuth";
 
+// Helper function to get companyId for multi-tenant data isolation
+// Returns undefined for admins (they can see all companies)
+// Returns activeCompanyId for regular users (throws if not set)
+async function getCompanyIdForUser(req: any): Promise<string | undefined> {
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  // Admin users can see all companies
+  if (user?.role === 'admin') {
+    return undefined;
+  }
+  
+  // Regular users must have an active company
+  if (!user?.activeCompanyId) {
+    throw new Error('User does not have an active company set');
+  }
+  
+  return user.activeCompanyId;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
   await setupAuth(app);
@@ -24,7 +44,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Protected routes - All client/license/invoice routes require authentication
   app.get("/api/clients", isAuthenticated, requirePermission('clients', 'read'), async (req, res) => {
     try {
-      const clients = await storage.getAllClients();
+      const companyId = await getCompanyIdForUser(req);
+      const clients = await storage.getAllClients(companyId);
       res.json(clients);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch clients" });
@@ -33,7 +54,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/clients/:id", isAuthenticated, requirePermission('clients', 'read'), async (req, res) => {
     try {
-      const client = await storage.getClient(req.params.id);
+      const companyId = await getCompanyIdForUser(req);
+      const client = await storage.getClient(req.params.id, companyId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
@@ -45,7 +67,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertClientSchema.parse(req.body);
+      
+      // Enforce company isolation: overwrite companyId for non-admin users
+      if (companyId) {
+        validatedData.companyId = companyId;
+      }
+      
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
@@ -58,8 +87,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/clients/:id", isAuthenticated, requirePermission('clients', 'update'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertClientSchema.partial().parse(req.body);
-      const client = await storage.updateClient(req.params.id, validatedData);
+      
+      // Prevent companyId reassignment: remove from payload
+      delete validatedData.companyId;
+      
+      const client = await storage.updateClient(req.params.id, validatedData, companyId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
@@ -74,8 +108,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/clients/:id", isAuthenticated, requirePermission('clients', 'delete'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       // Soft delete - mark as inactive instead of deleting
-      const client = await storage.updateClient(req.params.id, { status: "inactive" });
+      const client = await storage.updateClient(req.params.id, { status: "inactive" }, companyId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
@@ -87,7 +122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licenses", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
     try {
-      const licenses = await storage.getAllLicenses();
+      const companyId = await getCompanyIdForUser(req);
+      const licenses = await storage.getAllLicenses(companyId);
       res.json(licenses);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch licenses" });
@@ -96,7 +132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
     try {
-      const license = await storage.getLicense(req.params.id);
+      const companyId = await getCompanyIdForUser(req);
+      const license = await storage.getLicense(req.params.id, companyId);
       if (!license) {
         return res.status(404).json({ error: "License not found" });
       }
@@ -108,7 +145,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/licenses", isAuthenticated, requirePermission('licenses', 'create'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertLicenseSchema.parse(req.body);
+      
+      // Enforce company isolation: overwrite companyId for non-admin users
+      if (companyId) {
+        validatedData.companyId = companyId;
+      }
+      
       const license = await storage.createLicense(validatedData);
       res.status(201).json(license);
     } catch (error) {
@@ -121,8 +165,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'update'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertLicenseSchema.partial().parse(req.body);
-      const license = await storage.updateLicense(req.params.id, validatedData);
+      
+      // Prevent companyId reassignment: remove from payload
+      delete validatedData.companyId;
+      
+      const license = await storage.updateLicense(req.params.id, validatedData, companyId);
       if (!license) {
         return res.status(404).json({ error: "License not found" });
       }
@@ -137,7 +186,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'delete'), async (req, res) => {
     try {
-      const deleted = await storage.deleteLicense(req.params.id);
+      const companyId = await getCompanyIdForUser(req);
+      const deleted = await storage.deleteLicense(req.params.id, companyId);
       if (!deleted) {
         return res.status(404).json({ error: "License not found" });
       }
@@ -149,7 +199,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/invoices", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
-      const invoices = await storage.getAllInvoices();
+      const companyId = await getCompanyIdForUser(req);
+      const invoices = await storage.getAllInvoices(companyId);
       res.json(invoices);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch invoices" });
@@ -158,7 +209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
-      const invoice = await storage.getInvoice(req.params.id);
+      const companyId = await getCompanyIdForUser(req);
+      const invoice = await storage.getInvoice(req.params.id, companyId);
       if (!invoice) {
         return res.status(404).json({ error: "Invoice not found" });
       }
@@ -170,7 +222,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertInvoiceSchema.parse(req.body);
+      
+      // Enforce company isolation: overwrite companyId for non-admin users
+      if (companyId) {
+        validatedData.companyId = companyId;
+      }
+      
       const invoice = await storage.createInvoice(validatedData);
       res.status(201).json(invoice);
     } catch (error) {
@@ -183,8 +242,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'update'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertInvoiceSchema.partial().parse(req.body);
-      const invoice = await storage.updateInvoice(req.params.id, validatedData);
+      
+      // Prevent companyId reassignment: remove from payload
+      delete validatedData.companyId;
+      
+      const invoice = await storage.updateInvoice(req.params.id, validatedData, companyId);
       if (!invoice) {
         return res.status(404).json({ error: "Invoice not found" });
       }
@@ -199,7 +263,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
     try {
-      const deleted = await storage.deleteInvoice(req.params.id);
+      const companyId = await getCompanyIdForUser(req);
+      const deleted = await storage.deleteInvoice(req.params.id, companyId);
       if (!deleted) {
         return res.status(404).json({ error: "Invoice not found" });
       }
@@ -211,7 +276,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'read'), async (req, res) => {
     try {
-      const config = await storage.getBoletoConfig();
+      const companyId = await getCompanyIdForUser(req);
+      const config = await storage.getBoletoConfig(companyId);
       if (!config) {
         return res.json(null);
       }
@@ -229,7 +295,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'update'), async (req, res) => {
     try {
+      const companyId = await getCompanyIdForUser(req);
       const validatedData = insertBoletoConfigSchema.parse(req.body);
+      
+      // Enforce company isolation: always overwrite companyId for non-admin users
+      if (companyId) {
+        validatedData.companyId = companyId;
+      }
+      
       const config = await storage.saveBoletoConfig(validatedData);
       res.json(config);
     } catch (error) {
@@ -242,7 +315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/boleto/print/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
-      const config = await storage.getBoletoConfig();
+      const companyId = await getCompanyIdForUser(req);
+      const config = await storage.getBoletoConfig(companyId);
       if (!config) {
         return res.status(400).json({ error: "Configuração de boleto não encontrada. Configure primeiro." });
       }
@@ -391,9 +465,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/dashboard", isAuthenticated, async (req, res) => {
     try {
-      const clients = await storage.getAllClients();
-      const licenses = await storage.getAllLicenses();
-      const invoices = await storage.getAllInvoices();
+      const companyId = await getCompanyIdForUser(req);
+      const clients = await storage.getAllClients(companyId);
+      const licenses = await storage.getAllLicenses(companyId);
+      const invoices = await storage.getAllInvoices(companyId);
 
       const activeClients = clients.filter(c => c.status === "active").length;
       const activeLicenses = licenses.filter(l => l.isActive).length;
