@@ -200,9 +200,12 @@ export function requirePermission(resource: string, action: string): RequestHand
       const userId = sessionUser.claims.sub;
       const user = await storage.getUser(userId);
       
+      console.log(`[requirePermission] resource=${resource}, action=${action}, userId=${userId}, user=${JSON.stringify(user)}`);
+      
       // Admins (via users.role field) have implicit access to everything
       // This ensures backward compatibility with existing admin users
       if (user?.role === "admin") {
+        console.log(`[requirePermission] Admin access granted for ${resource}.${action}`);
         return next();
       }
       
@@ -214,8 +217,26 @@ export function requirePermission(resource: string, action: string): RequestHand
       );
 
       if (!hasPermission) {
+        const actionMap: Record<string, string> = {
+          'create': 'criar',
+          'read': 'visualizar',
+          'update': 'editar',
+          'delete': 'excluir',
+        };
+        
+        const resourceMap: Record<string, string> = {
+          'clients': 'clientes',
+          'licenses': 'licenças',
+          'invoices': 'faturas',
+          'boleto_config': 'configurações de boleto',
+          'companies': 'empresas',
+        };
+        
+        const actionText = actionMap[action] || action;
+        const resourceText = resourceMap[resource] || resource;
+        
         return res.status(403).json({ 
-          error: `Você não tem permissão para ${action === 'create' ? 'criar' : action === 'read' ? 'visualizar' : action === 'update' ? 'editar' : 'excluir'} ${resource === 'clients' ? 'clientes' : resource === 'licenses' ? 'licenças' : resource === 'invoices' ? 'faturas' : 'configurações de boleto'}.` 
+          error: `Você não tem permissão para ${actionText} ${resourceText}.` 
         });
       }
 

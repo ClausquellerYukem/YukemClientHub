@@ -114,21 +114,39 @@ export class DatabaseStorage implements IStorage {
     const isYukemEmail = userData.email?.endsWith('@yukem.com');
     const roleToAssign = isYukemEmail ? 'admin' : (userData.role || 'user');
     
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...userData,
-        role: roleToAssign,
-      })
-      .onConflictDoUpdate({
-        target: users.email,
-        set: {
-          ...userData,
+    // Check if user exists by email first
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, userData.email))
+      .limit(1);
+    
+    let user: User;
+    
+    if (existingUser) {
+      // Update existing user (keep same ID to avoid FK violations)
+      const [updated] = await db
+        .update(users)
+        .set({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
           role: roleToAssign,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+      user = updated;
+    } else {
+      // Insert new user
+      const [inserted] = await db
+        .insert(users)
+        .values({
+          ...userData,
+          role: roleToAssign,
+        })
+        .returning();
+      user = inserted;
+    }
     
     // Auto-assign role based on users.role field if user has no role assignments
     const existingRoles = await this.getUserRoles(user.id);
