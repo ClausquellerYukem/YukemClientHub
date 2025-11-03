@@ -21,6 +21,26 @@ export const companies = pgTable("companies", {
   name: varchar("name").notNull(),
   logoUrl: varchar("logo_url"),
   status: varchar("status").notNull().default("active"), // 'active', 'inactive'
+  
+  // Dados para Nota Fiscal e Contrato
+  cnpj: varchar("cnpj"),
+  stateRegistration: varchar("state_registration"), // Inscrição Estadual
+  cityRegistration: varchar("city_registration"), // Inscrição Municipal
+  
+  // Endereço completo
+  addressStreet: varchar("address_street"), // Logradouro
+  addressNumber: varchar("address_number"),
+  addressComplement: varchar("address_complement"),
+  addressDistrict: varchar("address_district"), // Bairro
+  addressCity: varchar("address_city"),
+  addressState: varchar("address_state"),
+  addressZipCode: varchar("address_zip_code"), // CEP
+  
+  // Configurações financeiras
+  monthlyValue: decimal("monthly_value", { precision: 10, scale: 2 }), // Valor mensal cobrado
+  revenueSharePercentage: decimal("revenue_share_percentage", { precision: 5, scale: 2 }), // % de repasse (ex: 40.00)
+  freeLicenseQuota: decimal("free_license_quota", { precision: 10, scale: 0 }).default("0"), // Quantidade de licenças gratuitas
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

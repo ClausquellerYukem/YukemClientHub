@@ -36,10 +36,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2, FileText, MapPin, DollarSign } from "lucide-react";
 import type { Company } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -63,6 +69,19 @@ export default function EmpresasPage() {
     resolver: zodResolver(insertCompanySchema),
     defaultValues: {
       name: "",
+      cnpj: "",
+      stateRegistration: "",
+      cityRegistration: "",
+      addressStreet: "",
+      addressNumber: "",
+      addressComplement: "",
+      addressDistrict: "",
+      addressCity: "",
+      addressState: "",
+      addressZipCode: "",
+      monthlyValue: "",
+      revenueSharePercentage: "",
+      freeLicenseQuota: "0",
     },
   });
 
@@ -154,7 +173,22 @@ export default function EmpresasPage() {
 
   const openEditDialog = (company: Company) => {
     setEditingCompany(company);
-    editForm.reset({ name: company.name });
+    editForm.reset({
+      name: company.name,
+      cnpj: company.cnpj || "",
+      stateRegistration: company.stateRegistration || "",
+      cityRegistration: company.cityRegistration || "",
+      addressStreet: company.addressStreet || "",
+      addressNumber: company.addressNumber || "",
+      addressComplement: company.addressComplement || "",
+      addressDistrict: company.addressDistrict || "",
+      addressCity: company.addressCity || "",
+      addressState: company.addressState || "",
+      addressZipCode: company.addressZipCode || "",
+      monthlyValue: company.monthlyValue || "",
+      revenueSharePercentage: company.revenueSharePercentage || "",
+      freeLicenseQuota: company.freeLicenseQuota || "0",
+    });
   };
 
   const openDeleteDialog = (company: Company) => {
@@ -178,7 +212,7 @@ export default function EmpresasPage() {
             Gerenciamento de Empresas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Crie e gerencie empresas no sistema multi-tenant
+            Cadastro completo para geração de nota fiscal e contrato
           </p>
         </div>
 
@@ -189,28 +223,219 @@ export default function EmpresasPage() {
               Nova Empresa
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Criar Nova Empresa</DialogTitle>
               <DialogDescription>
-                Adicione uma nova empresa ao sistema
+                Preencha os dados completos para geração de nota fiscal e contrato
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="create-name">Nome da Empresa</Label>
-                <Input
-                  id="create-name"
-                  data-testid="input-company-name"
-                  {...createForm.register("name")}
-                  placeholder="Ex: Acme Corporation"
-                />
-                {createForm.formState.errors.name && (
-                  <p className="text-sm text-destructive">
-                    {createForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
+              <Tabs defaultValue="cadastrais" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="cadastrais" data-testid="tab-cadastrais">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Dados Cadastrais
+                  </TabsTrigger>
+                  <TabsTrigger value="endereco" data-testid="tab-endereco">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Endereço
+                  </TabsTrigger>
+                  <TabsTrigger value="financeiro" data-testid="tab-financeiro">
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Financeiro
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="cadastrais" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="create-name">Nome da Empresa *</Label>
+                    <Input
+                      id="create-name"
+                      data-testid="input-company-name"
+                      {...createForm.register("name")}
+                      placeholder="Ex: Acme Corporation"
+                    />
+                    {createForm.formState.errors.name && (
+                      <p className="text-sm text-destructive">
+                        {createForm.formState.errors.name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="create-cnpj">CNPJ</Label>
+                    <Input
+                      id="create-cnpj"
+                      data-testid="input-cnpj"
+                      {...createForm.register("cnpj")}
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-state-reg">Inscrição Estadual</Label>
+                      <Input
+                        id="create-state-reg"
+                        data-testid="input-state-registration"
+                        {...createForm.register("stateRegistration")}
+                        placeholder="000.000.000.000"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="create-city-reg">Inscrição Municipal</Label>
+                      <Input
+                        id="create-city-reg"
+                        data-testid="input-city-registration"
+                        {...createForm.register("cityRegistration")}
+                        placeholder="000000"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="endereco" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="create-street">Logradouro</Label>
+                      <Input
+                        id="create-street"
+                        data-testid="input-address-street"
+                        {...createForm.register("addressStreet")}
+                        placeholder="Rua, Avenida, etc"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="create-number">Número</Label>
+                      <Input
+                        id="create-number"
+                        data-testid="input-address-number"
+                        {...createForm.register("addressNumber")}
+                        placeholder="123"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="create-complement">Complemento</Label>
+                    <Input
+                      id="create-complement"
+                      data-testid="input-address-complement"
+                      {...createForm.register("addressComplement")}
+                      placeholder="Sala, Andar, etc"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-district">Bairro</Label>
+                      <Input
+                        id="create-district"
+                        data-testid="input-address-district"
+                        {...createForm.register("addressDistrict")}
+                        placeholder="Centro"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="create-city">Cidade</Label>
+                      <Input
+                        id="create-city"
+                        data-testid="input-address-city"
+                        {...createForm.register("addressCity")}
+                        placeholder="São Paulo"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-state">Estado</Label>
+                      <Input
+                        id="create-state"
+                        data-testid="input-address-state"
+                        {...createForm.register("addressState")}
+                        placeholder="SP"
+                        maxLength={2}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="create-zipcode">CEP</Label>
+                      <Input
+                        id="create-zipcode"
+                        data-testid="input-address-zipcode"
+                        {...createForm.register("addressZipCode")}
+                        placeholder="00000-000"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="financeiro" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="create-monthly-value">Valor Mensal (R$)</Label>
+                    <Input
+                      id="create-monthly-value"
+                      data-testid="input-monthly-value"
+                      {...createForm.register("monthlyValue")}
+                      placeholder="0.00"
+                      type="number"
+                      step="0.01"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Valor mensal cobrado pela empresa
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="create-revenue-share">Percentual de Repasse (%)</Label>
+                    <Input
+                      id="create-revenue-share"
+                      data-testid="input-revenue-share"
+                      {...createForm.register("revenueSharePercentage")}
+                      placeholder="40.00"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Percentual aplicado sobre a mensalidade do cliente (ex: 40%)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="create-free-quota">Licenças Gratuitas</Label>
+                    <Input
+                      id="create-free-quota"
+                      data-testid="input-free-license-quota"
+                      {...createForm.register("freeLicenseQuota")}
+                      placeholder="10"
+                      type="number"
+                      min="0"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Quantidade de licenças gratuitas. Após esse limite, será cobrado o percentual de repasse sobre a mensalidade do cliente.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-muted rounded-md space-y-2">
+                    <h4 className="font-medium text-sm">Exemplo de Cálculo:</h4>
+                    <p className="text-sm text-muted-foreground">
+                      • Licenças gratuitas: 10<br />
+                      • Cliente cobra R$ 100/mês<br />
+                      • Percentual de repasse: 40%<br />
+                      • Licenças 1-10: R$ 0 (gratuitas)<br />
+                      • Licença 11+: R$ 40 cada (40% de R$ 100)
+                    </p>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
               <DialogFooter>
                 <Button
                   type="button"
@@ -248,7 +473,10 @@ export default function EmpresasPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Criada em</TableHead>
+                <TableHead>CNPJ</TableHead>
+                <TableHead>Cidade</TableHead>
+                <TableHead>Licenças Grátis</TableHead>
+                <TableHead>Repasse</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -257,9 +485,10 @@ export default function EmpresasPage() {
                 companies.map((company) => (
                   <TableRow key={company.id} data-testid={`row-company-${company.id}`}>
                     <TableCell className="font-medium">{company.name}</TableCell>
-                    <TableCell>
-                      {new Date(company.createdAt).toLocaleDateString("pt-BR")}
-                    </TableCell>
+                    <TableCell>{company.cnpj || "-"}</TableCell>
+                    <TableCell>{company.addressCity || "-"}</TableCell>
+                    <TableCell>{company.freeLicenseQuota || "0"}</TableCell>
+                    <TableCell>{company.revenueSharePercentage ? `${company.revenueSharePercentage}%` : "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
@@ -284,7 +513,7 @@ export default function EmpresasPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     Nenhuma empresa cadastrada
                   </TableCell>
                 </TableRow>
@@ -295,7 +524,7 @@ export default function EmpresasPage() {
       </Card>
 
       <Dialog open={!!editingCompany} onOpenChange={(open) => !open && setEditingCompany(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Empresa</DialogTitle>
             <DialogDescription>
@@ -303,20 +532,188 @@ export default function EmpresasPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Nome da Empresa</Label>
-              <Input
-                id="edit-name"
-                data-testid="input-edit-company-name"
-                {...editForm.register("name")}
-                placeholder="Ex: Acme Corporation"
-              />
-              {editForm.formState.errors.name && (
-                <p className="text-sm text-destructive">
-                  {editForm.formState.errors.name.message}
-                </p>
-              )}
-            </div>
+            <Tabs defaultValue="cadastrais" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="cadastrais">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Dados Cadastrais
+                </TabsTrigger>
+                <TabsTrigger value="endereco">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Endereço
+                </TabsTrigger>
+                <TabsTrigger value="financeiro">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Financeiro
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="cadastrais" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Nome da Empresa *</Label>
+                  <Input
+                    id="edit-name"
+                    data-testid="input-edit-company-name"
+                    {...editForm.register("name")}
+                    placeholder="Ex: Acme Corporation"
+                  />
+                  {editForm.formState.errors.name && (
+                    <p className="text-sm text-destructive">
+                      {editForm.formState.errors.name.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cnpj">CNPJ</Label>
+                  <Input
+                    id="edit-cnpj"
+                    data-testid="input-edit-cnpj"
+                    {...editForm.register("cnpj")}
+                    placeholder="00.000.000/0000-00"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-state-reg">Inscrição Estadual</Label>
+                    <Input
+                      id="edit-state-reg"
+                      {...editForm.register("stateRegistration")}
+                      placeholder="000.000.000.000"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-city-reg">Inscrição Municipal</Label>
+                    <Input
+                      id="edit-city-reg"
+                      {...editForm.register("cityRegistration")}
+                      placeholder="000000"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="endereco" className="space-y-4 mt-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="edit-street">Logradouro</Label>
+                    <Input
+                      id="edit-street"
+                      {...editForm.register("addressStreet")}
+                      placeholder="Rua, Avenida, etc"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-number">Número</Label>
+                    <Input
+                      id="edit-number"
+                      {...editForm.register("addressNumber")}
+                      placeholder="123"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-complement">Complemento</Label>
+                  <Input
+                    id="edit-complement"
+                    {...editForm.register("addressComplement")}
+                    placeholder="Sala, Andar, etc"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-district">Bairro</Label>
+                    <Input
+                      id="edit-district"
+                      {...editForm.register("addressDistrict")}
+                      placeholder="Centro"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-city">Cidade</Label>
+                    <Input
+                      id="edit-city"
+                      {...editForm.register("addressCity")}
+                      placeholder="São Paulo"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-state">Estado</Label>
+                    <Input
+                      id="edit-state"
+                      {...editForm.register("addressState")}
+                      placeholder="SP"
+                      maxLength={2}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-zipcode">CEP</Label>
+                    <Input
+                      id="edit-zipcode"
+                      {...editForm.register("addressZipCode")}
+                      placeholder="00000-000"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="financeiro" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-monthly-value">Valor Mensal (R$)</Label>
+                  <Input
+                    id="edit-monthly-value"
+                    {...editForm.register("monthlyValue")}
+                    placeholder="0.00"
+                    type="number"
+                    step="0.01"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Valor mensal cobrado pela empresa
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-revenue-share">Percentual de Repasse (%)</Label>
+                  <Input
+                    id="edit-revenue-share"
+                    {...editForm.register("revenueSharePercentage")}
+                    placeholder="40.00"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Percentual aplicado sobre a mensalidade do cliente (ex: 40%)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-free-quota">Licenças Gratuitas</Label>
+                  <Input
+                    id="edit-free-quota"
+                    {...editForm.register("freeLicenseQuota")}
+                    placeholder="10"
+                    type="number"
+                    min="0"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Quantidade de licenças gratuitas. Após esse limite, será cobrado o percentual de repasse.
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+
             <DialogFooter>
               <Button
                 type="button"
