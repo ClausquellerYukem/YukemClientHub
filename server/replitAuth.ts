@@ -185,3 +185,44 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// Permission-based middleware factory
+export function requirePermission(resource: string, action: string): RequestHandler {
+  return async (req, res, next) => {
+    const sessionUser = req.user as any;
+
+    if (!req.isAuthenticated() || !sessionUser.expires_at) {
+      return res.status(401).json({ message: "Não autorizado" });
+    }
+
+    try {
+      const { storage } = await import("./storage");
+      const userId = sessionUser.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Admins (via users.role field) have implicit access to everything
+      // This ensures backward compatibility with existing admin users
+      if (user?.role === "admin") {
+        return next();
+      }
+      
+      // Check role-based permissions for non-admin users
+      const hasPermission = await storage.checkUserPermission(
+        userId,
+        resource as any,
+        action as any
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({ 
+          error: `Você não tem permissão para ${action === 'create' ? 'criar' : action === 'read' ? 'visualizar' : action === 'update' ? 'editar' : 'excluir'} ${resource === 'clients' ? 'clientes' : resource === 'licenses' ? 'licenças' : resource === 'invoices' ? 'faturas' : 'configurações de boleto'}.` 
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error checking permission:", error);
+      return res.status(500).json({ error: "Erro ao verificar permissões" });
+    }
+  };
+}

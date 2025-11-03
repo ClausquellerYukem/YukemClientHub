@@ -9,14 +9,25 @@ import {
   type UpsertUser,
   type BoletoConfig,
   type InsertBoletoConfig,
+  type Role,
+  type InsertRole,
+  type RoleAssignment,
+  type InsertRoleAssignment,
+  type RolePermission,
+  type InsertRolePermission,
+  type Resource,
+  type Action,
   users,
   clients,
   licenses,
   invoices,
   boletoConfig,
+  roles,
+  roleAssignments,
+  rolePermissions,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations - Required for Replit Auth
@@ -46,6 +57,26 @@ export interface IStorage {
 
   getBoletoConfig(): Promise<BoletoConfig | undefined>;
   saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig>;
+
+  // Role operations
+  getAllRoles(): Promise<Role[]>;
+  getRole(id: string): Promise<Role | undefined>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: string, updates: Partial<InsertRole>): Promise<Role | undefined>;
+  deleteRole(id: string): Promise<boolean>;
+
+  // Role assignment operations
+  getUserRoles(userId: string): Promise<Role[]>;
+  assignRole(assignment: InsertRoleAssignment): Promise<RoleAssignment>;
+  removeRoleAssignment(userId: string, roleId: string): Promise<boolean>;
+  getAllUsersWithRoles(): Promise<Array<User & { roles: Role[] }>>;
+
+  // Permission operations
+  getPermissionsByRole(roleId: string): Promise<RolePermission[]>;
+  getAllPermissions(): Promise<RolePermission[]>;
+  updateRolePermission(id: string, updates: Partial<InsertRolePermission>): Promise<RolePermission | undefined>;
+  getUserPermissions(userId: string): Promise<Map<Resource, Set<Action>>>;
+  checkUserPermission(userId: string, resource: Resource, action: Action): Promise<boolean>;
 }
 
 // Migrated from MemStorage to DatabaseStorage - Reference: blueprint:javascript_database
@@ -183,6 +214,133 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(boletoConfig).values(config).returning();
       return created;
     }
+  }
+
+  // Role operations
+  async getAllRoles(): Promise<Role[]> {
+    return await db.select().from(roles);
+  }
+
+  async getRole(id: string): Promise<Role | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.id, id));
+    return role;
+  }
+
+  async createRole(insertRole: InsertRole): Promise<Role> {
+    const [role] = await db.insert(roles).values(insertRole).returning();
+    return role;
+  }
+
+  async updateRole(id: string, updates: Partial<InsertRole>): Promise<Role | undefined> {
+    const [role] = await db
+      .update(roles)
+      .set(updates)
+      .where(eq(roles.id, id))
+      .returning();
+    return role;
+  }
+
+  async deleteRole(id: string): Promise<boolean> {
+    const result = await db.delete(roles).where(eq(roles.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Role assignment operations
+  async getUserRoles(userId: string): Promise<Role[]> {
+    const assignments = await db
+      .select({ role: roles })
+      .from(roleAssignments)
+      .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
+      .where(eq(roleAssignments.userId, userId));
+    
+    return assignments.map(a => a.role);
+  }
+
+  async assignRole(assignment: InsertRoleAssignment): Promise<RoleAssignment> {
+    const [created] = await db.insert(roleAssignments).values(assignment).returning();
+    return created;
+  }
+
+  async removeRoleAssignment(userId: string, roleId: string): Promise<boolean> {
+    const result = await db
+      .delete(roleAssignments)
+      .where(
+        and(
+          eq(roleAssignments.userId, userId),
+          eq(roleAssignments.roleId, roleId)
+        )
+      )
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllUsersWithRoles(): Promise<Array<User & { roles: Role[] }>> {
+    const allUsers = await db.select().from(users);
+    const usersWithRoles = await Promise.all(
+      allUsers.map(async (user) => {
+        const userRoles = await this.getUserRoles(user.id);
+        return { ...user, roles: userRoles };
+      })
+    );
+    return usersWithRoles;
+  }
+
+  // Permission operations
+  async getPermissionsByRole(roleId: string): Promise<RolePermission[]> {
+    return await db
+      .select()
+      .from(rolePermissions)
+      .where(eq(rolePermissions.roleId, roleId));
+  }
+
+  async getAllPermissions(): Promise<RolePermission[]> {
+    return await db.select().from(rolePermissions);
+  }
+
+  async updateRolePermission(id: string, updates: Partial<InsertRolePermission>): Promise<RolePermission | undefined> {
+    const [permission] = await db
+      .update(rolePermissions)
+      .set(updates)
+      .where(eq(rolePermissions.id, id))
+      .returning();
+    return permission;
+  }
+
+  async getUserPermissions(userId: string): Promise<Map<Resource, Set<Action>>> {
+    const userRoles = await this.getUserRoles(userId);
+    const roleIds = userRoles.map(r => r.id);
+    
+    if (roleIds.length === 0) {
+      return new Map();
+    }
+
+    const permissions = await db
+      .select()
+      .from(rolePermissions)
+      .where(inArray(rolePermissions.roleId, roleIds));
+
+    const permissionMap = new Map<Resource, Set<Action>>();
+    
+    for (const perm of permissions) {
+      const resource = perm.resource as Resource;
+      if (!permissionMap.has(resource)) {
+        permissionMap.set(resource, new Set());
+      }
+      const actions = permissionMap.get(resource)!;
+      
+      if (perm.canCreate) actions.add('create');
+      if (perm.canRead) actions.add('read');
+      if (perm.canUpdate) actions.add('update');
+      if (perm.canDelete) actions.add('delete');
+    }
+    
+    return permissionMap;
+  }
+
+  async checkUserPermission(userId: string, resource: Resource, action: Action): Promise<boolean> {
+    const permissions = await this.getUserPermissions(userId);
+    const resourcePermissions = permissions.get(resource);
+    return resourcePermissions ? resourcePermissions.has(action) : false;
   }
 }
 

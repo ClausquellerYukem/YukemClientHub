@@ -67,6 +67,33 @@ export const boletoConfig = pgTable("boleto_config", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// RBAC System Tables
+export const roles = pgTable("roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  description: text("description"),
+  isSystem: boolean("is_system").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const roleAssignments = pgTable("role_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  roleId: varchar("role_id").notNull().references(() => roles.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const rolePermissions = pgTable("role_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roleId: varchar("role_id").notNull().references(() => roles.id, { onDelete: 'cascade' }),
+  resource: varchar("resource").notNull(), // 'clients', 'licenses', 'invoices', 'boleto_config'
+  canCreate: boolean("can_create").notNull().default(false),
+  canRead: boolean("can_read").notNull().default(false),
+  canUpdate: boolean("can_update").notNull().default(false),
+  canDelete: boolean("can_delete").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
   createdAt: true,
@@ -103,3 +130,36 @@ export type BoletoConfig = typeof boletoConfig.$inferSelect;
 // Reference: blueprint:javascript_log_in_with_replit
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// RBAC schemas and types
+export const insertRoleSchema = createInsertSchema(roles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRoleAssignmentSchema = createInsertSchema(roleAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRole = z.infer<typeof insertRoleSchema>;
+export type Role = typeof roles.$inferSelect;
+
+export type InsertRoleAssignment = z.infer<typeof insertRoleAssignmentSchema>;
+export type RoleAssignment = typeof roleAssignments.$inferSelect;
+
+export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
+export type RolePermission = typeof rolePermissions.$inferSelect;
+
+// Permission resource types
+export const resourceSchema = z.enum(['clients', 'licenses', 'invoices', 'boleto_config']);
+export type Resource = z.infer<typeof resourceSchema>;
+
+// Permission action types
+export const actionSchema = z.enum(['create', 'read', 'update', 'delete']);
+export type Action = z.infer<typeof actionSchema>;

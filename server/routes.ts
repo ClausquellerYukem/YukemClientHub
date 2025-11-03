@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema } from "@shared/schema";
 import { z } from "zod";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
@@ -22,7 +22,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Protected routes - All client/license/invoice routes require authentication
-  app.get("/api/clients", isAuthenticated, async (req, res) => {
+  app.get("/api/clients", isAuthenticated, requirePermission('clients', 'read'), async (req, res) => {
     try {
       const clients = await storage.getAllClients();
       res.json(clients);
@@ -31,7 +31,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/clients/:id", isAuthenticated, requirePermission('clients', 'read'), async (req, res) => {
     try {
       const client = await storage.getClient(req.params.id);
       if (!client) {
@@ -43,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", isAuthenticated, async (req, res) => {
+  app.post("/api/clients", isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
       const validatedData = insertClientSchema.parse(req.body);
       const client = await storage.createClient(validatedData);
@@ -56,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/clients/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/clients/:id", isAuthenticated, requirePermission('clients', 'update'), async (req, res) => {
     try {
       const validatedData = insertClientSchema.partial().parse(req.body);
       const client = await storage.updateClient(req.params.id, validatedData);
@@ -72,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/clients/:id", isAuthenticated, requirePermission('clients', 'delete'), async (req, res) => {
     try {
       // Soft delete - mark as inactive instead of deleting
       const client = await storage.updateClient(req.params.id, { status: "inactive" });
@@ -85,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/licenses", isAuthenticated, async (req, res) => {
+  app.get("/api/licenses", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
     try {
       const licenses = await storage.getAllLicenses();
       res.json(licenses);
@@ -94,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/licenses/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
     try {
       const license = await storage.getLicense(req.params.id);
       if (!license) {
@@ -106,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/licenses", isAuthenticated, async (req, res) => {
+  app.post("/api/licenses", isAuthenticated, requirePermission('licenses', 'create'), async (req, res) => {
     try {
       const validatedData = insertLicenseSchema.parse(req.body);
       const license = await storage.createLicense(validatedData);
@@ -119,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/licenses/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'update'), async (req, res) => {
     try {
       const validatedData = insertLicenseSchema.partial().parse(req.body);
       const license = await storage.updateLicense(req.params.id, validatedData);
@@ -135,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/licenses/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'delete'), async (req, res) => {
     try {
       const deleted = await storage.deleteLicense(req.params.id);
       if (!deleted) {
@@ -147,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices", isAuthenticated, async (req, res) => {
+  app.get("/api/invoices", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const invoices = await storage.getAllInvoices();
       res.json(invoices);
@@ -156,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/invoices", isAuthenticated, async (req, res) => {
+  app.post("/api/invoices", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
     try {
       const validatedData = insertInvoiceSchema.parse(req.body);
       const invoice = await storage.createInvoice(validatedData);
@@ -181,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/invoices/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'update'), async (req, res) => {
     try {
       const validatedData = insertInvoiceSchema.partial().parse(req.body);
       const invoice = await storage.updateInvoice(req.params.id, validatedData);
@@ -197,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/invoices/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
     try {
       const deleted = await storage.deleteInvoice(req.params.id);
       if (!deleted) {
@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/boleto/config", isAuthenticated, async (req, res) => {
+  app.get("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'read'), async (req, res) => {
     try {
       const config = await storage.getBoletoConfig();
       if (!config) {
@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/boleto/config", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'update'), async (req, res) => {
     try {
       const validatedData = insertBoletoConfigSchema.parse(req.body);
       const config = await storage.saveBoletoConfig(validatedData);
@@ -240,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/boleto/print/:id", isAuthenticated, async (req, res) => {
+  app.post("/api/boleto/print/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const config = await storage.getBoletoConfig();
       if (!config) {
@@ -281,6 +281,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error printing boleto:", error);
       res.status(500).json({ error: "Falha ao conectar com a API de boletos" });
+    }
+  });
+
+  // Admin - User Management Routes
+  app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsersWithRoles();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users/:userId/roles", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { roleId } = req.body;
+      
+      if (!roleId) {
+        return res.status(400).json({ error: "Role ID is required" });
+      }
+
+      const assignment = await storage.assignRole({ userId, roleId });
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error assigning role:", error);
+      res.status(500).json({ error: "Failed to assign role" });
+    }
+  });
+
+  app.delete("/api/users/:userId/roles/:roleId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId, roleId } = req.params;
+      const success = await storage.removeRoleAssignment(userId, roleId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Role assignment not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing role:", error);
+      res.status(500).json({ error: "Failed to remove role" });
+    }
+  });
+
+  // Admin - Role Management Routes
+  app.get("/api/roles", isAuthenticated, async (req, res) => {
+    try {
+      const roles = await storage.getAllRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ error: "Failed to fetch roles" });
+    }
+  });
+
+  // Admin - Permission Management Routes
+  app.get("/api/permissions", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const permissions = await storage.getAllPermissions();
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      res.status(500).json({ error: "Failed to fetch permissions" });
+    }
+  });
+
+  app.put("/api/permissions/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const permission = await storage.updateRolePermission(id, updates);
+      
+      if (!permission) {
+        return res.status(404).json({ error: "Permission not found" });
+      }
+      
+      res.json(permission);
+    } catch (error) {
+      console.error("Error updating permission:", error);
+      res.status(500).json({ error: "Failed to update permission" });
+    }
+  });
+
+  // Current user permissions (for UI guards)
+  app.get("/api/me/permissions", isAuthenticated, async (req, res) => {
+    try {
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      
+      const permissionsMap = await storage.getUserPermissions(userId);
+      
+      // Convert Map to JSON-serializable object
+      const permissions: Record<string, string[]> = {};
+      permissionsMap.forEach((actions, resource) => {
+        permissions[resource] = Array.from(actions);
+      });
+      
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ error: "Failed to fetch permissions" });
     }
   });
 

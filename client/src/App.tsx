@@ -16,6 +16,8 @@ import Profile from "@/pages/profile";
 import BoletoConfig from "@/pages/boleto-config";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
+import UsuariosPage from "@/pages/admin/usuarios";
+import PermissoesPage from "@/pages/admin/permissoes";
 
 // Router with authentication - Reference: blueprint:javascript_log_in_with_replit
 function Router() {
@@ -46,6 +48,8 @@ function Router() {
           <Route path="/licencas" component={Licenses} />
           <Route path="/configuracoes" component={BoletoConfig} />
           <Route path="/perfil" component={Profile} />
+          <Route path="/admin/usuarios" component={UsuariosPage} />
+          <Route path="/admin/permissoes" component={PermissoesPage} />
         </>
       )}
       <Route component={NotFound} />
