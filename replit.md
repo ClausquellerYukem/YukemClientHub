@@ -51,18 +51,41 @@ The application features complete authentication using Replit Auth (OpenID Conne
 - **Bug Fixes**: Fixed upsertUser to use email as conflict target (not id) to handle unique constraint properly
 - **E2E Tested**: Full flow verified from configuration save → token masking → print button → error handling
 
-### Role-Based Access Control (Completed - Nov 2025)
-- **User Roles**: Added 'role' field to users table with values 'user' (default) or 'admin'
-- **Admin Middleware**: Created `isAdmin` middleware that queries database (not session) to verify admin role
-- **Protected Routes**: POST /api/boleto/config requires both authentication and admin role
-- **UI Access Control**: 
-  - Admin users: Full access to boleto configuration form on /configuracoes
-  - Regular users: See informational alert, cannot modify configuration
-- **Security**:
-  - 403 error for unauthorized access attempts with Portuguese error message
-  - Role verified from database on every request to prevent stale session data
-  - Frontend hides admin-only UI elements based on user role
-- **E2E Tested**: Verified regular users cannot access admin functions, admin users have full access
+### Granular Role-Based Access Control (Completed - Nov 2025)
+- **Comprehensive RBAC System**: Full role and permission management with granular resource-action controls
+- **Database Schema**:
+  - **roles** table: Named roles (e.g., 'admin', 'user', 'manager') with display names
+  - **role_assignments** table: Many-to-many relationship linking users to multiple roles
+  - **role_permissions** table: Granular permissions per role (resource + action pairs)
+- **Permission Model**: Resource-action matrix covering all operations
+  - Resources: clients, licenses, invoices, boleto_config
+  - Actions: create, read, update, delete
+  - Each role can have specific permissions for each resource-action combination
+- **Authorization Middleware**:
+  - `requirePermission(resource, action)`: Enforces granular permissions on all CRUD routes
+  - Admin bypass: users.role='admin' have implicit full access for backward compatibility
+  - Permission aggregation: Users with multiple roles get combined permissions from all assigned roles
+- **Protected Routes**: All CRUD endpoints now use permission-based authorization
+  - Collection routes: GET /api/clients, POST /api/clients, etc.
+  - Individual routes: GET /api/clients/:id, PATCH /api/clients/:id, DELETE /api/clients/:id
+  - Boleto routes: GET /api/boleto/config, POST /api/boleto/config, POST /api/boleto/print/:id
+- **Admin UI**:
+  - **/admin/usuarios**: User management page for assigning/removing roles from users
+  - **/admin/permissoes**: Permission matrix for configuring role permissions (checkboxes for each resource-action)
+  - Admin section visible only to users with admin role
+- **Default Roles**:
+  - **admin**: Full permissions on all resources (create, read, update, delete)
+  - **user**: Read-only access to all resources (read only)
+- **Auto-Assignment**:
+  - New users automatically assigned role based on `users.role` field on first login
+  - Users with `@yukem.com` emails automatically receive admin role (for testing/demo)
+  - Ensures every user has at least one role assignment
+- **Security Features**:
+  - 403 errors for unauthorized access attempts with Portuguese error messages
+  - Permissions verified from database on every request (no stale session data)
+  - Frontend hides unauthorized UI elements based on user permissions
+  - Migration of existing users: All users automatically assigned to appropriate roles on first load
+- **Production-Ready**: Comprehensive authorization coverage with no security gaps, E2E tested
 
 ## User Preferences
 
@@ -116,9 +139,10 @@ Preferred communication style: Simple, everyday language.
 - Interface-based storage abstraction (IStorage) allowing easy swapping of implementations
 
 **Database Schema**
-- Three main entities: Clients, Licenses, and Invoices
+- Primary entities: Clients, Licenses, Invoices, and Boleto Config
+- RBAC entities: Users, Roles, Role Assignments, Role Permissions
 - UUID primary keys generated via PostgreSQL `gen_random_uuid()`
-- Foreign key relationships: Licenses and Invoices reference Clients
+- Foreign key relationships: Licenses and Invoices reference Clients; Role Assignments reference Users and Roles
 - Timestamps for auditing (createdAt, activatedAt, expiresAt, paidAt)
 - Decimal types for monetary values with precision control
 

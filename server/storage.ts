@@ -89,17 +89,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Automatically set admin role for @yukem.com emails (for testing/demo)
+    const isYukemEmail = userData.email?.endsWith('@yukem.com');
+    const roleToAssign = isYukemEmail ? 'admin' : (userData.role || 'user');
+    
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values({
+        ...userData,
+        role: roleToAssign,
+      })
       .onConflictDoUpdate({
         target: users.email,
         set: {
           ...userData,
+          role: roleToAssign,
           updatedAt: new Date(),
         },
       })
       .returning();
+    
+    // Auto-assign role based on users.role field if user has no role assignments
+    const existingRoles = await this.getUserRoles(user.id);
+    if (existingRoles.length === 0) {
+      // Find the role that matches the user's role field
+      const [matchingRole] = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.name, user.role))
+        .limit(1);
+      
+      if (matchingRole) {
+        await this.assignRole({
+          userId: user.id,
+          roleId: matchingRole.id,
+        });
+      }
+    }
+    
     return user;
   }
 
