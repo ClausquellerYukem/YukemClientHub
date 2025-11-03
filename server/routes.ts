@@ -594,7 +594,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/companies", isAuthenticated, requirePermission('companies', 'create'), async (req, res) => {
     try {
       const validatedData = insertCompanySchema.parse(req.body);
-      const company = await storage.createCompany(validatedData);
+      
+      // Convert empty strings to null for numeric fields (PostgreSQL requirement)
+      const cleanedData = {
+        ...validatedData,
+        monthlyValue: validatedData.monthlyValue === "" ? null : validatedData.monthlyValue,
+        revenueSharePercentage: validatedData.revenueSharePercentage === "" ? null : validatedData.revenueSharePercentage,
+        freeLicenseQuota: validatedData.freeLicenseQuota === "" ? null : validatedData.freeLicenseQuota,
+      };
+      
+      const company = await storage.createCompany(cleanedData);
       res.status(201).json(company);
     } catch (error) {
       console.error("Error creating company:", error);
@@ -605,7 +614,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/companies/:id", isAuthenticated, requirePermission('companies', 'update'), async (req, res) => {
     try {
       const validatedData = insertCompanySchema.partial().parse(req.body);
-      const company = await storage.updateCompany(req.params.id, validatedData);
+      
+      // Convert empty strings to null for numeric fields (PostgreSQL requirement)
+      const cleanedData = {
+        ...validatedData,
+        monthlyValue: validatedData.monthlyValue === "" ? null : validatedData.monthlyValue,
+        revenueSharePercentage: validatedData.revenueSharePercentage === "" ? null : validatedData.revenueSharePercentage,
+        freeLicenseQuota: validatedData.freeLicenseQuota === "" ? null : validatedData.freeLicenseQuota,
+      };
+      
+      const company = await storage.updateCompany(req.params.id, cleanedData);
       if (!company) {
         return res.status(404).json({ error: "Company not found" });
       }

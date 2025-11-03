@@ -110,8 +110,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Email is required for upsert
+    if (!userData.email) {
+      throw new Error('Email is required for user upsert');
+    }
+    
     // Automatically set admin role for @yukem.com emails (for testing/demo)
-    const isYukemEmail = userData.email?.endsWith('@yukem.com');
+    const isYukemEmail = userData.email.endsWith('@yukem.com');
     const roleToAssign = isYukemEmail ? 'admin' : (userData.role || 'user');
     
     // Check if user exists by email first
@@ -130,6 +135,7 @@ export class DatabaseStorage implements IStorage {
         .set({
           firstName: userData.firstName,
           lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
           role: roleToAssign,
           updatedAt: new Date(),
         })
@@ -137,12 +143,16 @@ export class DatabaseStorage implements IStorage {
         .returning();
       user = updated;
     } else {
-      // Insert new user
+      // Insert new user (let database generate ID to avoid collisions)
       const [inserted] = await db
         .insert(users)
         .values({
-          ...userData,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
           role: roleToAssign,
+          // Do NOT include userData.id - let database generate via gen_random_uuid()
         })
         .returning();
       user = inserted;
