@@ -163,15 +163,25 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 export const isAdmin: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
+  const sessionUser = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !sessionUser.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  if (user.role !== "admin") {
-    return res.status(403).json({ error: "Acesso negado. Apenas administradores podem realizar esta ação." });
-  }
+  try {
+    // Import storage dynamically to avoid circular dependency
+    const { storage } = await import("./storage");
+    const userId = sessionUser.claims.sub;
+    const user = await storage.getUser(userId);
 
-  next();
+    if (user?.role !== "admin") {
+      return res.status(403).json({ error: "Acesso negado. Apenas administradores podem realizar esta ação." });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error checking admin role:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
