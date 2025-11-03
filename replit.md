@@ -51,6 +51,19 @@ The application features complete authentication using Replit Auth (OpenID Conne
 - **Bug Fixes**: Fixed upsertUser to use email as conflict target (not id) to handle unique constraint properly
 - **E2E Tested**: Full flow verified from configuration save → token masking → print button → error handling
 
+### Role-Based Access Control (Completed - Nov 2025)
+- **User Roles**: Added 'role' field to users table with values 'user' (default) or 'admin'
+- **Admin Middleware**: Created `isAdmin` middleware that queries database (not session) to verify admin role
+- **Protected Routes**: POST /api/boleto/config requires both authentication and admin role
+- **UI Access Control**: 
+  - Admin users: Full access to boleto configuration form on /configuracoes
+  - Regular users: See informational alert, cannot modify configuration
+- **Security**:
+  - 403 error for unauthorized access attempts with Portuguese error message
+  - Role verified from database on every request to prevent stale session data
+  - Frontend hides admin-only UI elements based on user role
+- **E2E Tested**: Verified regular users cannot access admin functions, admin users have full access
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
