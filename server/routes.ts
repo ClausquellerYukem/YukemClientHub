@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema } from "@shared/schema";
+import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema, insertCompanySchema, insertUserCompanySchema } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replitAuth";
 
@@ -411,6 +411,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Company Routes - Multi-tenant support
+  app.get("/api/companies", isAuthenticated, requirePermission('companies', 'read'), async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      res.json(companies);
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  app.post("/api/companies", isAuthenticated, requirePermission('companies', 'create'), async (req, res) => {
+    try {
+      const validatedData = insertCompanySchema.parse(req.body);
+      const company = await storage.createCompany(validatedData);
+      res.status(201).json(company);
+    } catch (error) {
+      console.error("Error creating company:", error);
+      res.status(500).json({ error: "Failed to create company" });
+    }
+  });
+
+  app.patch("/api/companies/:id", isAuthenticated, requirePermission('companies', 'update'), async (req, res) => {
+    try {
+      const validatedData = insertCompanySchema.partial().parse(req.body);
+      const company = await storage.updateCompany(req.params.id, validatedData);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      res.json(company);
+    } catch (error) {
+      console.error("Error updating company:", error);
+      res.status(500).json({ error: "Failed to update company" });
+    }
+  });
+
+  app.delete("/api/companies/:id", isAuthenticated, requirePermission('companies', 'delete'), async (req, res) => {
+    try {
+      const deleted = await storage.deleteCompany(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting company:", error);
+      res.status(500).json({ error: "Failed to delete company" });
+    }
+  });
+
+  // User-Company Routes
+  app.get("/api/user/companies", isAuthenticated, async (req, res) => {
+    try {
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      const companies = await storage.getUserCompanies(userId);
+      res.json(companies);
+    } catch (error) {
+      console.error("Error fetching user companies:", error);
+      res.status(500).json({ error: "Failed to fetch user companies" });
+    }
+  });
+
+  app.patch("/api/user/active-company", isAuthenticated, async (req, res) => {
+    try {
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      const { companyId } = req.body;
+      
+      if (!companyId) {
+        return res.status(400).json({ error: "companyId is required" });
+      }
+
+      const user = await storage.setActiveCompany(userId, companyId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error setting active company:", error);
+      res.status(500).json({ error: "Failed to set active company" });
+    }
+  });
+
+  app.post("/api/user/companies", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertUserCompanySchema.parse(req.body);
+      const userCompany = await storage.assignUserToCompany(validatedData);
+      res.status(201).json(userCompany);
+    } catch (error) {
+      console.error("Error assigning user to company:", error);
+      res.status(500).json({ error: "Failed to assign user to company" });
+    }
+  });
+
+  app.delete("/api/user/companies/:userId/:companyId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId, companyId } = req.params;
+      const deleted = await storage.removeUserFromCompany(userId, companyId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Association not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing user from company:", error);
+      res.status(500).json({ error: "Failed to remove user from company" });
     }
   });
 

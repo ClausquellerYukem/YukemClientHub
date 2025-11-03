@@ -15,6 +15,10 @@ import {
   type InsertRoleAssignment,
   type RolePermission,
   type InsertRolePermission,
+  type Company,
+  type InsertCompany,
+  type UserCompany,
+  type InsertUserCompany,
   type Resource,
   type Action,
   users,
@@ -25,6 +29,8 @@ import {
   roles,
   roleAssignments,
   rolePermissions,
+  companies,
+  userCompanies,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray } from "drizzle-orm";
@@ -77,6 +83,21 @@ export interface IStorage {
   updateRolePermission(id: string, updates: Partial<InsertRolePermission>): Promise<RolePermission | undefined>;
   getUserPermissions(userId: string): Promise<Map<Resource, Set<Action>>>;
   checkUserPermission(userId: string, resource: Resource, action: Action): Promise<boolean>;
+
+  // Company operations - Multi-tenant support
+  getAllCompanies(): Promise<Company[]>;
+  getCompany(id: string): Promise<Company | undefined>;
+  createCompany(company: InsertCompany): Promise<Company>;
+  updateCompany(id: string, updates: Partial<InsertCompany>): Promise<Company | undefined>;
+  deleteCompany(id: string): Promise<boolean>;
+
+  // User-Company operations
+  getUserCompanies(userId: string): Promise<Company[]>;
+  assignUserToCompany(assignment: InsertUserCompany): Promise<UserCompany>;
+  removeUserFromCompany(userId: string, companyId: string): Promise<boolean>;
+  
+  // Active company operations
+  setActiveCompany(userId: string, companyId: string): Promise<User | undefined>;
 }
 
 // Migrated from MemStorage to DatabaseStorage - Reference: blueprint:javascript_database
@@ -368,6 +389,77 @@ export class DatabaseStorage implements IStorage {
     const permissions = await this.getUserPermissions(userId);
     const resourcePermissions = permissions.get(resource);
     return resourcePermissions ? resourcePermissions.has(action) : false;
+  }
+
+  // Company operations - Multi-tenant support
+  async getAllCompanies(): Promise<Company[]> {
+    return await db.select().from(companies);
+  }
+
+  async getCompany(id: string): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company;
+  }
+
+  async createCompany(companyData: InsertCompany): Promise<Company> {
+    const [company] = await db.insert(companies).values(companyData).returning();
+    return company;
+  }
+
+  async updateCompany(id: string, updates: Partial<InsertCompany>): Promise<Company | undefined> {
+    const [company] = await db
+      .update(companies)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(companies.id, id))
+      .returning();
+    return company;
+  }
+
+  async deleteCompany(id: string): Promise<boolean> {
+    const result = await db.delete(companies).where(eq(companies.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // User-Company operations
+  async getUserCompanies(userId: string): Promise<Company[]> {
+    const userCompanyRecords = await db
+      .select({ companyId: userCompanies.companyId })
+      .from(userCompanies)
+      .where(eq(userCompanies.userId, userId));
+
+    if (userCompanyRecords.length === 0) {
+      return [];
+    }
+
+    const companyIds = userCompanyRecords.map(uc => uc.companyId);
+    return await db.select().from(companies).where(inArray(companies.id, companyIds));
+  }
+
+  async assignUserToCompany(assignment: InsertUserCompany): Promise<UserCompany> {
+    const [userCompany] = await db.insert(userCompanies).values(assignment).returning();
+    return userCompany;
+  }
+
+  async removeUserFromCompany(userId: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(userCompanies)
+      .where(
+        and(
+          eq(userCompanies.userId, userId),
+          eq(userCompanies.companyId, companyId)
+        )
+      )
+      .returning();
+    return result.length > 0;
+  }
+
+  async setActiveCompany(userId: string, companyId: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ activeCompanyId: companyId })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
   }
 }
 
