@@ -276,7 +276,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'read'), async (req, res) => {
     try {
-      const companyId = await getCompanyIdForUser(req);
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
+      
+      let companyId: string | undefined;
+      
+      if (isAdmin) {
+        // Admins MUST specify companyId explicitly via query parameter
+        companyId = req.query.companyId as string;
+        if (!companyId) {
+          return res.status(400).json({ error: "Admins must specify ?companyId=xxx" });
+        }
+      } else {
+        // Regular users use their active company
+        companyId = await getCompanyIdForUser(req);
+      }
+      
       const config = await storage.getBoletoConfig(companyId);
       if (!config) {
         return res.json(null);
@@ -295,11 +312,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'update'), async (req, res) => {
     try {
-      const companyId = await getCompanyIdForUser(req);
-      const validatedData = insertBoletoConfigSchema.parse(req.body);
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
       
-      // Enforce company isolation: always overwrite companyId for non-admin users
-      if (companyId) {
+      const validatedData = insertBoletoConfigSchema.parse(req.body);
+      let companyId: string;
+      
+      if (isAdmin) {
+        // Admins MUST specify companyId in payload
+        if (!validatedData.companyId) {
+          return res.status(400).json({ error: "Admins must specify companyId in payload" });
+        }
+        companyId = validatedData.companyId;
+      } else {
+        // Regular users: always use their active company (enforce isolation)
+        const userCompanyId = await getCompanyIdForUser(req);
+        if (!userCompanyId) {
+          return res.status(400).json({ error: "Active company not set" });
+        }
+        companyId = userCompanyId;
         validatedData.companyId = companyId;
       }
       
@@ -315,7 +348,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/boleto/print/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
-      const companyId = await getCompanyIdForUser(req);
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
+      
+      let companyId: string | undefined;
+      
+      if (isAdmin) {
+        // Admins MUST specify companyId explicitly via query parameter
+        companyId = req.query.companyId as string;
+        if (!companyId) {
+          return res.status(400).json({ error: "Admins must specify ?companyId=xxx" });
+        }
+      } else {
+        // Regular users use their active company
+        companyId = await getCompanyIdForUser(req);
+      }
+      
       const config = await storage.getBoletoConfig(companyId);
       if (!config) {
         return res.status(400).json({ error: "Configuração de boleto não encontrada. Configure primeiro." });
@@ -485,6 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(stats);
     } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
