@@ -80,14 +80,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         payload.companyId = companyId;
       }
       
+      console.log("[POST /api/clients] Payload after companyId:", JSON.stringify(payload, null, 2));
       const validatedData = insertClientSchema.parse(payload);
+      console.log("[POST /api/clients] Validation successful, creating client...");
       
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("[POST /api/clients] Validation failed:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ error: "Invalid data", details: error.errors });
       }
+      console.error("[POST /api/clients] Unexpected error:", error);
       res.status(500).json({ error: "Failed to create client" });
     }
   });
