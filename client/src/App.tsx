@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CompanySelector } from "@/components/company-selector";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import Dashboard from "@/pages/dashboard";
@@ -18,6 +19,7 @@ import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 import UsuariosPage from "@/pages/admin/usuarios";
 import PermissoesPage from "@/pages/admin/permissoes";
+import EmpresasPage from "@/pages/admin/empresas";
 
 // Router with authentication - Reference: blueprint:javascript_log_in_with_replit
 function Router() {
@@ -50,6 +52,7 @@ function Router() {
           <Route path="/perfil" component={Profile} />
           <Route path="/admin/usuarios" component={UsuariosPage} />
           <Route path="/admin/permissoes" component={PermissoesPage} />
+          <Route path="/admin/empresas" component={EmpresasPage} />
         </>
       )}
       <Route component={NotFound} />
@@ -103,7 +106,10 @@ function AuthLayout({ style }: { style: Record<string, string> }) {
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
+            <div className="flex items-center gap-3">
+              <CompanySelector />
+              <ThemeToggle />
+            </div>
           </header>
           <main className="flex-1 overflow-auto p-6">
             <Router />

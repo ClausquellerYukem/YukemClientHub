@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, CreditCard, Key, UserCircle, Settings, Shield, UserCog } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Key, UserCircle, Settings, Shield, UserCog, Building2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -52,6 +52,11 @@ const adminMenuItems = [
     title: "Permissões",
     url: "/admin/permissoes",
     icon: Shield,
+  },
+  {
+    title: "Empresas",
+    url: "/admin/empresas",
+    icon: Building2,
   },
 ];
 

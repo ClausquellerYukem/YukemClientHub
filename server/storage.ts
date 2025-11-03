@@ -41,27 +41,27 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 
-  getClient(id: string): Promise<Client | undefined>;
-  getAllClients(): Promise<Client[]>;
+  getClient(id: string, companyId?: string): Promise<Client | undefined>;
+  getAllClients(companyId?: string): Promise<Client[]>;
   createClient(client: InsertClient): Promise<Client>;
-  updateClient(id: string, client: Partial<InsertClient>): Promise<Client | undefined>;
-  deleteClient(id: string): Promise<boolean>;
+  updateClient(id: string, client: Partial<InsertClient>, companyId?: string): Promise<Client | undefined>;
+  deleteClient(id: string, companyId?: string): Promise<boolean>;
 
-  getLicense(id: string): Promise<License | undefined>;
+  getLicense(id: string, companyId?: string): Promise<License | undefined>;
   getLicensesByClientId(clientId: string): Promise<License[]>;
-  getAllLicenses(): Promise<License[]>;
+  getAllLicenses(companyId?: string): Promise<License[]>;
   createLicense(license: InsertLicense): Promise<License>;
-  updateLicense(id: string, license: Partial<InsertLicense>): Promise<License | undefined>;
-  deleteLicense(id: string): Promise<boolean>;
+  updateLicense(id: string, license: Partial<InsertLicense>, companyId?: string): Promise<License | undefined>;
+  deleteLicense(id: string, companyId?: string): Promise<boolean>;
 
-  getInvoice(id: string): Promise<Invoice | undefined>;
+  getInvoice(id: string, companyId?: string): Promise<Invoice | undefined>;
   getInvoicesByClientId(clientId: string): Promise<Invoice[]>;
-  getAllInvoices(): Promise<Invoice[]>;
+  getAllInvoices(companyId?: string): Promise<Invoice[]>;
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
-  updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
-  deleteInvoice(id: string): Promise<boolean>;
+  updateInvoice(id: string, invoice: Partial<InsertInvoice>, companyId?: string): Promise<Invoice | undefined>;
+  deleteInvoice(id: string, companyId?: string): Promise<boolean>;
 
-  getBoletoConfig(): Promise<BoletoConfig | undefined>;
+  getBoletoConfig(companyId?: string): Promise<BoletoConfig | undefined>;
   saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig>;
 
   // Role operations
@@ -151,12 +151,19 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getClient(id: string): Promise<Client | undefined> {
-    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+  async getClient(id: string, companyId?: string): Promise<Client | undefined> {
+    const conditions = [eq(clients.id, id)];
+    if (companyId) {
+      conditions.push(eq(clients.companyId, companyId));
+    }
+    const [client] = await db.select().from(clients).where(and(...conditions));
     return client;
   }
 
-  async getAllClients(): Promise<Client[]> {
+  async getAllClients(companyId?: string): Promise<Client[]> {
+    if (companyId) {
+      return await db.select().from(clients).where(eq(clients.companyId, companyId));
+    }
     return await db.select().from(clients);
   }
 
@@ -165,22 +172,34 @@ export class DatabaseStorage implements IStorage {
     return client;
   }
 
-  async updateClient(id: string, updates: Partial<InsertClient>): Promise<Client | undefined> {
+  async updateClient(id: string, updates: Partial<InsertClient>, companyId?: string): Promise<Client | undefined> {
+    const conditions = [eq(clients.id, id)];
+    if (companyId) {
+      conditions.push(eq(clients.companyId, companyId));
+    }
     const [client] = await db
       .update(clients)
       .set(updates)
-      .where(eq(clients.id, id))
+      .where(and(...conditions))
       .returning();
     return client;
   }
 
-  async deleteClient(id: string): Promise<boolean> {
-    const result = await db.delete(clients).where(eq(clients.id, id)).returning();
+  async deleteClient(id: string, companyId?: string): Promise<boolean> {
+    const conditions = [eq(clients.id, id)];
+    if (companyId) {
+      conditions.push(eq(clients.companyId, companyId));
+    }
+    const result = await db.delete(clients).where(and(...conditions)).returning();
     return result.length > 0;
   }
 
-  async getLicense(id: string): Promise<License | undefined> {
-    const [license] = await db.select().from(licenses).where(eq(licenses.id, id));
+  async getLicense(id: string, companyId?: string): Promise<License | undefined> {
+    const conditions = [eq(licenses.id, id)];
+    if (companyId) {
+      conditions.push(eq(licenses.companyId, companyId));
+    }
+    const [license] = await db.select().from(licenses).where(and(...conditions));
     return license;
   }
 
@@ -188,7 +207,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(licenses).where(eq(licenses.clientId, clientId));
   }
 
-  async getAllLicenses(): Promise<License[]> {
+  async getAllLicenses(companyId?: string): Promise<License[]> {
+    if (companyId) {
+      return await db.select().from(licenses).where(eq(licenses.companyId, companyId));
+    }
     return await db.select().from(licenses);
   }
 
@@ -197,22 +219,34 @@ export class DatabaseStorage implements IStorage {
     return license;
   }
 
-  async updateLicense(id: string, updates: Partial<InsertLicense>): Promise<License | undefined> {
+  async updateLicense(id: string, updates: Partial<InsertLicense>, companyId?: string): Promise<License | undefined> {
+    const conditions = [eq(licenses.id, id)];
+    if (companyId) {
+      conditions.push(eq(licenses.companyId, companyId));
+    }
     const [license] = await db
       .update(licenses)
       .set(updates)
-      .where(eq(licenses.id, id))
+      .where(and(...conditions))
       .returning();
     return license;
   }
 
-  async deleteLicense(id: string): Promise<boolean> {
-    const result = await db.delete(licenses).where(eq(licenses.id, id)).returning();
+  async deleteLicense(id: string, companyId?: string): Promise<boolean> {
+    const conditions = [eq(licenses.id, id)];
+    if (companyId) {
+      conditions.push(eq(licenses.companyId, companyId));
+    }
+    const result = await db.delete(licenses).where(and(...conditions)).returning();
     return result.length > 0;
   }
 
-  async getInvoice(id: string): Promise<Invoice | undefined> {
-    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+  async getInvoice(id: string, companyId?: string): Promise<Invoice | undefined> {
+    const conditions = [eq(invoices.id, id)];
+    if (companyId) {
+      conditions.push(eq(invoices.companyId, companyId));
+    }
+    const [invoice] = await db.select().from(invoices).where(and(...conditions));
     return invoice;
   }
 
@@ -220,7 +254,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(invoices).where(eq(invoices.clientId, clientId));
   }
 
-  async getAllInvoices(): Promise<Invoice[]> {
+  async getAllInvoices(companyId?: string): Promise<Invoice[]> {
+    if (companyId) {
+      return await db.select().from(invoices).where(eq(invoices.companyId, companyId));
+    }
     return await db.select().from(invoices);
   }
 
@@ -229,27 +266,39 @@ export class DatabaseStorage implements IStorage {
     return invoice;
   }
 
-  async updateInvoice(id: string, updates: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+  async updateInvoice(id: string, updates: Partial<InsertInvoice>, companyId?: string): Promise<Invoice | undefined> {
+    const conditions = [eq(invoices.id, id)];
+    if (companyId) {
+      conditions.push(eq(invoices.companyId, companyId));
+    }
     const [invoice] = await db
       .update(invoices)
       .set(updates)
-      .where(eq(invoices.id, id))
+      .where(and(...conditions))
       .returning();
     return invoice;
   }
 
-  async deleteInvoice(id: string): Promise<boolean> {
-    const result = await db.delete(invoices).where(eq(invoices.id, id)).returning();
+  async deleteInvoice(id: string, companyId?: string): Promise<boolean> {
+    const conditions = [eq(invoices.id, id)];
+    if (companyId) {
+      conditions.push(eq(invoices.companyId, companyId));
+    }
+    const result = await db.delete(invoices).where(and(...conditions)).returning();
     return result.length > 0;
   }
 
-  async getBoletoConfig(): Promise<BoletoConfig | undefined> {
+  async getBoletoConfig(companyId?: string): Promise<BoletoConfig | undefined> {
+    if (companyId) {
+      const [config] = await db.select().from(boletoConfig).where(eq(boletoConfig.companyId, companyId)).limit(1);
+      return config;
+    }
     const configs = await db.select().from(boletoConfig).limit(1);
     return configs[0];
   }
 
   async saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig> {
-    const existing = await this.getBoletoConfig();
+    const existing = await db.select().from(boletoConfig).where(eq(boletoConfig.companyId, config.companyId!)).limit(1);
     
     if (existing) {
       const [updated] = await db
