@@ -58,15 +58,8 @@ export default function Users() {
       return apiRequest("POST", "/api/user/companies", data);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/users"] });
-      setShowCompanyDialog(false);
-      setSelectedUserId(null);
-      setSelectedCompanyId("");
-      toast({
-        title: "Associação criada",
-        description: "Usuário associado à empresa com sucesso.",
-      });
+      // Force a complete page reload to ensure fresh data
+      window.location.reload();
     },
     onError: () => {
       toast({
@@ -82,12 +75,8 @@ export default function Users() {
       return apiRequest("DELETE", `/api/user/companies/${userId}/${companyId}`, null);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/users"] });
-      toast({
-        title: "Associação removida",
-        description: "Usuário desassociado da empresa.",
-      });
+      // Force a complete page reload to ensure fresh data
+      window.location.reload();
     },
     onError: () => {
       toast({
