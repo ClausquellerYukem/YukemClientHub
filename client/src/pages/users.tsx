@@ -44,6 +44,12 @@ export default function Users() {
   const { data: users = [], isLoading: usersLoading } = useQuery<UserWithDetails[]>({
     queryKey: ["/api/users"],
   });
+  
+  console.log("[Users Page] Users data:", users);
+  console.log("[Users Page] Users length:", users?.length);
+  if (users && users.length > 0) {
+    console.log("[Users Page] First user companies:", users[0].companies);
+  }
 
   const { data: companies = [], isLoading: companiesLoading } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
