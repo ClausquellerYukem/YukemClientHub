@@ -57,8 +57,9 @@ export default function Users() {
     mutationFn: async (data: { userId: string; companyId: string }) => {
       return apiRequest("POST", "/api/user/companies", data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/users"] });
       setShowCompanyDialog(false);
       setSelectedUserId(null);
       setSelectedCompanyId("");
@@ -80,8 +81,9 @@ export default function Users() {
     mutationFn: async ({ userId, companyId }: { userId: string; companyId: string }) => {
       return apiRequest("DELETE", `/api/user/companies/${userId}/${companyId}`, null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/users"] });
       toast({
         title: "Associação removida",
         description: "Usuário desassociado da empresa.",

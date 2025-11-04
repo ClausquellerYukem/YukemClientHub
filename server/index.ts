@@ -4,6 +4,9 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// Disable etag for API routes to prevent 304 caching issues
+app.set('etag', false);
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
