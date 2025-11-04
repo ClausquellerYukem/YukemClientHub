@@ -59,6 +59,23 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
 
 ## Recent Implementations
 
+### User-Company Association Management (Completed - Nov 2025)
+- **Admin Interface**: New page at /admin/usuarios for managing users
+  - Lists all users with their associated companies and roles
+  - Visual badges showing current associations
+  - Quick actions to add/remove companies and roles
+- **Backend Endpoints**:
+  - GET /api/users: Returns all users with companies and roles (admin only)
+  - POST /api/user/companies: Create user-company association (admin only)
+  - DELETE /api/user/companies/:userId/:companyId: Remove association (admin only)
+- **UI Features**:
+  - Dialogs for adding new associations with dropdown selectors
+  - Inline removal via X buttons on badges
+  - Prevents duplicate associations (filters already-assigned items)
+  - Toast notifications for all operations
+- **Security**: All endpoints protected with isAuthenticated + isAdmin middleware
+- **Production-Ready**: Architect-approved with no security concerns
+
 ### Company Selector for Multi-Tenant Context (Completed - Nov 2025)
 - **Active Company Selection**: Users can select which company they're working with from the header
 - **Visual Component**: CompanySelector displayed in app header next to theme toggle
