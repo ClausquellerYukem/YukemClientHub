@@ -697,6 +697,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // User-Company Routes
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
+    console.log("========================================");
+    console.log("ENDPOINT /api/users CALLED!");
+    console.log("========================================");
     try {
       console.log("[GET /api/users] Starting request...");
       const usersWithRoles = await storage.getAllUsersWithRoles();
