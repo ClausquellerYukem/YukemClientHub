@@ -711,13 +711,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      // Log first user as example
+      // Debug: Check what's being returned
+      console.log("[GET /api/users] Final data check:");
+      console.log("- Total users:", usersWithCompanies.length);
       if (usersWithCompanies.length > 0) {
-        console.log("[GET /api/users] Sample user FULL data:");
-        console.log(JSON.stringify(usersWithCompanies[0], null, 2));
+        const firstUser = usersWithCompanies[0];
+        console.log("- First user ID:", firstUser.id);
+        console.log("- First user has companies field?", 'companies' in firstUser);
+        console.log("- First user companies value:", firstUser.companies);
+        console.log("- First user companies type:", typeof firstUser.companies);
+        console.log("- First user has roles field?", 'roles' in firstUser);
+        console.log("- First user roles value:", firstUser.roles);
       }
       
-      console.log(`[GET /api/users] Returning ${usersWithCompanies.length} users`);
       res.json(usersWithCompanies);
     } catch (error) {
       console.error("[GET /api/users] Error:", error);
