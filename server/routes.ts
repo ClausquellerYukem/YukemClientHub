@@ -777,8 +777,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertUserCompanySchema.parse(req.body);
       const userCompany = await storage.assignUserToCompany(validatedData);
       res.status(201).json(userCompany);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error assigning user to company:", error);
+      
+      // Check if it's a duplicate key violation
+      if (error.code === '23505' && error.constraint === 'user_companies_user_id_company_id_unique') {
+        return res.status(409).json({ error: "Usuário já está associado a esta empresa" });
+      }
+      
       res.status(500).json({ error: "Failed to assign user to company" });
     }
   });
