@@ -193,7 +193,7 @@ export default function Users() {
 
   const getAvailableCompanies = (userId: string) => {
     const user = users.find(u => u.id === userId);
-    if (!user) return companies;
+    if (!user || !user.companies) return companies;
     
     const userCompanyIds = user.companies.map(c => c.id);
     return companies.filter(c => !userCompanyIds.includes(c.id));
@@ -201,7 +201,7 @@ export default function Users() {
 
   const getAvailableRoles = (userId: string) => {
     const user = users.find(u => u.id === userId);
-    if (!user) return allRoles;
+    if (!user || !user.roles) return allRoles;
     
     const userRoleIds = user.roles.map(r => r.id);
     return allRoles.filter(r => !userRoleIds.includes(r.id));
@@ -276,7 +276,7 @@ export default function Users() {
                   <Building2 className="h-4 w-4" />
                   Empresas Associadas:
                 </div>
-                {user.companies.length === 0 ? (
+                {!user.companies || user.companies.length === 0 ? (
                   <p className="text-sm text-muted-foreground ml-6" data-testid={`text-no-companies-${user.id}`}>
                     Nenhuma empresa associada
                   </p>
@@ -309,7 +309,7 @@ export default function Users() {
                   <Shield className="h-4 w-4" />
                   Roles/Permissões:
                 </div>
-                {user.roles.length === 0 ? (
+                {!user.roles || user.roles.length === 0 ? (
                   <p className="text-sm text-muted-foreground ml-6" data-testid={`text-no-roles-${user.id}`}>
                     Nenhum role atribuído
                   </p>
