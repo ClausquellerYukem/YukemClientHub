@@ -713,12 +713,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Log first user as example
       if (usersWithCompanies.length > 0) {
-        console.log("[GET /api/users] Sample user data:", JSON.stringify({
-          id: usersWithCompanies[0].id,
-          email: usersWithCompanies[0].email,
-          companiesCount: usersWithCompanies[0].companies?.length || 0,
-          companies: usersWithCompanies[0].companies?.map((c: any) => c.name) || []
-        }));
+        console.log("[GET /api/users] Sample user FULL data:");
+        console.log(JSON.stringify(usersWithCompanies[0], null, 2));
       }
       
       console.log(`[GET /api/users] Returning ${usersWithCompanies.length} users`);
