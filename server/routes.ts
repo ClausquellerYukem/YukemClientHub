@@ -698,21 +698,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User-Company Routes
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
+      console.log("[GET /api/users] Starting request...");
       const usersWithRoles = await storage.getAllUsersWithRoles();
+      console.log(`[GET /api/users] Got ${usersWithRoles.length} users from getAllUsersWithRoles`);
       
       // Fetch companies for each user
       const usersWithCompanies = await Promise.all(
         usersWithRoles.map(async (user) => {
           const companies = await storage.getUserCompanies(user.id);
-          console.log(`[GET /api/users] User ${user.id} has ${companies.length} companies:`, companies.map(c => c.name));
+          console.log(`[GET /api/users] User ${user.email} (${user.id}) has ${companies.length} companies`);
           return { ...user, companies };
         })
       );
       
+      // Log first user as example
+      if (usersWithCompanies.length > 0) {
+        console.log("[GET /api/users] Sample user data:", JSON.stringify({
+          id: usersWithCompanies[0].id,
+          email: usersWithCompanies[0].email,
+          companiesCount: usersWithCompanies[0].companies?.length || 0,
+          companies: usersWithCompanies[0].companies?.map((c: any) => c.name) || []
+        }));
+      }
+      
       console.log(`[GET /api/users] Returning ${usersWithCompanies.length} users`);
       res.json(usersWithCompanies);
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("[GET /api/users] Error:", error);
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
