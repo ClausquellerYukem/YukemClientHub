@@ -17,7 +17,7 @@ import Profile from "@/pages/profile";
 import BoletoConfig from "@/pages/boleto-config";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
-import UsuariosPage from "@/pages/admin/usuarios";
+import Users from "@/pages/users";
 import PermissoesPage from "@/pages/admin/permissoes";
 import EmpresasPage from "@/pages/admin/empresas";
 
@@ -50,7 +50,7 @@ function Router() {
           <Route path="/licencas" component={Licenses} />
           <Route path="/configuracoes" component={BoletoConfig} />
           <Route path="/perfil" component={Profile} />
-          <Route path="/admin/usuarios" component={UsuariosPage} />
+          <Route path="/admin/usuarios" component={Users} />
           <Route path="/admin/permissoes" component={PermissoesPage} />
           <Route path="/admin/empresas" component={EmpresasPage} />
         </>

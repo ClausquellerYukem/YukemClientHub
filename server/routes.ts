@@ -696,6 +696,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User-Company Routes
+  app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const usersWithRoles = await storage.getAllUsersWithRoles();
+      
+      // Fetch companies for each user
+      const usersWithCompanies = await Promise.all(
+        usersWithRoles.map(async (user) => {
+          const companies = await storage.getUserCompanies(user.id);
+          return { ...user, companies };
+        })
+      );
+      
+      res.json(usersWithCompanies);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
   app.get("/api/user/companies", isAuthenticated, async (req, res) => {
     try {
       const sessionUser = req.user as any;
