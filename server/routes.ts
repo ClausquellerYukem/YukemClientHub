@@ -704,10 +704,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const usersWithCompanies = await Promise.all(
         usersWithRoles.map(async (user) => {
           const companies = await storage.getUserCompanies(user.id);
+          console.log(`[GET /api/users] User ${user.id} has ${companies.length} companies:`, companies.map(c => c.name));
           return { ...user, companies };
         })
       );
       
+      console.log(`[GET /api/users] Returning ${usersWithCompanies.length} users`);
       res.json(usersWithCompanies);
     } catch (error) {
       console.error("Error fetching users:", error);
