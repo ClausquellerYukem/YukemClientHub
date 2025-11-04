@@ -457,16 +457,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin - User Management Routes
-  app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const users = await storage.getAllUsersWithRoles();
-      res.json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  });
-
   app.post("/api/users/:userId/roles", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { userId } = req.params;

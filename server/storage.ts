@@ -80,7 +80,7 @@ export interface IStorage {
   getUserRoles(userId: string): Promise<Role[]>;
   assignRole(assignment: InsertRoleAssignment): Promise<RoleAssignment>;
   removeRoleAssignment(userId: string, roleId: string): Promise<boolean>;
-  getAllUsersWithRoles(): Promise<Array<User & { roles: Role[] }>>;
+  getAllUsersWithRoles(): Promise<Array<User & { roles: Role[]; companies: Company[] }>>;
 
   // Permission operations
   getPermissionsByRole(roleId: string): Promise<RolePermission[]>;
@@ -470,15 +470,16 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getAllUsersWithRoles(): Promise<Array<User & { roles: Role[] }>> {
+  async getAllUsersWithRoles(): Promise<Array<User & { roles: Role[]; companies: Company[] }>> {
     const allUsers = await db.select().from(users);
-    const usersWithRoles = await Promise.all(
+    const usersWithRolesAndCompanies = await Promise.all(
       allUsers.map(async (user) => {
         const userRoles = await this.getUserRoles(user.id);
-        return { ...user, roles: userRoles };
+        const userCompanies = await this.getUserCompanies(user.id);
+        return { ...user, roles: userRoles, companies: userCompanies };
       })
     );
-    return usersWithRoles;
+    return usersWithRolesAndCompanies;
   }
 
   // Permission operations
