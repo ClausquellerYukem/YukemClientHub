@@ -179,6 +179,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/licenses/generate", isAuthenticated, requirePermission('licenses', 'create'), async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const { clientId } = req.body;
+      
+      if (!clientId) {
+        return res.status(400).json({ error: "clientId is required" });
+      }
+      
+      // SECURITY: Get client with company isolation to prevent cross-tenant license generation
+      const client = await storage.getClient(clientId, companyId);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found or access denied" });
+      }
+      
+      // Check for duplicate license: verify if there's already an active license for this client
+      const existingLicenses = await storage.getAllLicenses(companyId);
+      const activeLicense = existingLicenses.find(lic => 
+        lic.clientId === clientId && lic.isActive === true
+      );
+      
+      if (activeLicense) {
+        return res.status(409).json({ 
+          error: "Já existe uma licença ativa para este cliente"
+        });
+      }
+      
+      // Generate unique license key (format: XXXX-XXXX-XXXX-XXXX)
+      const { nanoid } = await import('nanoid');
+      const generateLicenseKey = () => {
+        const part1 = nanoid(4).toUpperCase();
+        const part2 = nanoid(4).toUpperCase();
+        const part3 = nanoid(4).toUpperCase();
+        const part4 = nanoid(4).toUpperCase();
+        return `${part1}-${part2}-${part3}-${part4}`;
+      };
+      
+      // Calculate expiration date (1 year from now)
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      
+      // Create the license with enforced company isolation
+      const licenseData = {
+        companyId: client.companyId,
+        clientId: client.id,
+        licenseKey: generateLicenseKey(),
+        isActive: true,
+        expiresAt: expiresAt,
+      };
+      
+      const license = await storage.createLicense(licenseData);
+      res.status(201).json(license);
+    } catch (error) {
+      console.error("Error generating license:", error);
+      res.status(500).json({ error: "Failed to generate license" });
+    }
+  });
+
   app.patch("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'update'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
@@ -296,6 +354,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (dueDate.getDate() !== dueDay) {
           dueDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
         }
+      }
+      
+      // Check for duplicate invoice: verify if there's already an invoice for this client with same due date
+      const existingInvoices = await storage.getInvoicesByClientId(clientId);
+      const dueDateStr = dueDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
+      const duplicateInvoice = existingInvoices.find(inv => {
+        const invDueDateStr = new Date(inv.dueDate).toISOString().split('T')[0];
+        return invDueDateStr === dueDateStr;
+      });
+      
+      if (duplicateInvoice) {
+        return res.status(409).json({ 
+          error: "Já existe uma fatura para este cliente com a mesma data de vencimento"
+        });
       }
       
       // Create the invoice with enforced company isolation
