@@ -118,3 +118,30 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
   - If calculated due date is in the past, uses next month
   - All date calculations handle edge cases (leap years, short months, etc.)
 - **Production-Ready**: Architect-approved with comprehensive edge case handling and security validation
+- **Duplicate Protection (Nov 5, 2025)**: Added validation to prevent duplicate invoice generation
+  - Checks for existing invoices with same due date before creating
+  - Returns 409 Conflict with Portuguese message if duplicate detected
+
+### Automated License Generation (Completed - Nov 5, 2025)
+- **License Generation Endpoint**: POST /api/licenses/generate
+  - Accepts clientId in request body
+  - Validates client belongs to user's activeCompanyId (multi-tenant security)
+  - Checks for existing active licenses to prevent duplicates
+  - Generates unique license key in format XXXX-XXXX-XXXX-XXXX
+  - Uses customAlphabet with uppercase alphanumerics only (0-9, A-Z)
+  - Sets expiration date to 1 year from generation
+  - Returns 201 with created license on success
+  - Returns 409 Conflict if active license already exists
+- **UI Integration**: "Gerar Licença" button in clients table
+  - Key icon button in each client row (data-testid="button-generate-license-{clientId}")
+  - Positioned between "Gerar Fatura" and "Delete" buttons
+  - Loading state during generation
+  - Toast notifications for success/error in Portuguese
+- **Duplicate Protection**: Both licenses and invoices
+  - Licenses: checks for existing active license per client
+  - Invoices: checks for existing invoice with same due date
+  - Returns appropriate error messages in Portuguese
+- **Localization**: All error messages in Portuguese
+  - Validation errors, not found errors, and generic failures
+  - Consistent user experience with localized feedback
+- **Production-Ready**: Architect-approved with secure key generation and complete error handling
