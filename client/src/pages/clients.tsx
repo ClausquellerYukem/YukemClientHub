@@ -113,10 +113,32 @@ export default function Clients() {
         description: "A fatura foi gerada com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Não foi possível gerar a fatura.";
       toast({
         title: "Erro",
-        description: "Não foi possível gerar a fatura.",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateLicenseMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      return apiRequest("POST", "/api/licenses/generate", { clientId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
+      toast({
+        title: "Licença gerada",
+        description: "A licença foi gerada com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Não foi possível gerar a licença.";
+      toast({
+        title: "Erro",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -142,6 +164,10 @@ export default function Clients() {
 
   const handleGenerateInvoice = (id: string) => {
     generateInvoiceMutation.mutate(id);
+  };
+
+  const handleGenerateLicense = (id: string) => {
+    generateLicenseMutation.mutate(id);
   };
 
   const confirmDelete = () => {
@@ -200,6 +226,8 @@ export default function Clients() {
         onDelete={handleDelete}
         onGenerateInvoice={handleGenerateInvoice}
         isGeneratingInvoice={generateInvoiceMutation.isPending}
+        onGenerateLicense={handleGenerateLicense}
+        isGeneratingLicense={generateLicenseMutation.isPending}
       />
 
       {/* Diálogo de Criar Cliente */}

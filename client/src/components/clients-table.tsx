@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Edit, Eye, Trash2, FileText } from "lucide-react";
+import { Search, Edit, Eye, Trash2, FileText, Key } from "lucide-react";
 
 interface Client {
   id: string;
@@ -29,9 +29,11 @@ interface ClientsTableProps {
   onDelete?: (id: string) => void;
   onGenerateInvoice?: (id: string) => void;
   isGeneratingInvoice?: boolean;
+  onGenerateLicense?: (id: string) => void;
+  isGeneratingLicense?: boolean;
 }
 
-export function ClientsTable({ clients, onEdit, onView, onDelete, onGenerateInvoice, isGeneratingInvoice }: ClientsTableProps) {
+export function ClientsTable({ clients, onEdit, onView, onDelete, onGenerateInvoice, isGeneratingInvoice, onGenerateLicense, isGeneratingLicense }: ClientsTableProps) {
   const [search, setSearch] = useState("");
 
   const filteredClients = clients.filter((client) =>
@@ -125,6 +127,16 @@ export function ClientsTable({ clients, onEdit, onView, onDelete, onGenerateInvo
                       disabled={isGeneratingInvoice}
                     >
                       <FileText className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onGenerateLicense?.(client.id)}
+                      data-testid={`button-generate-license-${client.id}`}
+                      title="Gerar Licença"
+                      disabled={isGeneratingLicense}
+                    >
+                      <Key className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
