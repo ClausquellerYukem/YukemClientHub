@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { CompanySelector } from "@/components/company-selector";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect } from "react";
 import Dashboard from "@/pages/dashboard";
 import Clients from "@/pages/clients";
 import Financial from "@/pages/financial";
@@ -22,22 +23,7 @@ import PermissoesPage from "@/pages/admin/permissoes";
 import EmpresasPage from "@/pages/admin/empresas";
 
 // Router with authentication - Reference: blueprint:javascript_log_in_with_replit
-function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  // Show loading state while checking auth
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="space-y-4 w-full max-w-md p-8">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      </div>
-    );
-  }
-
+function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <Switch>
       {!isAuthenticated ? (
@@ -80,6 +66,12 @@ export default function App() {
 function AuthLayout({ style }: { style: Record<string, string> }) {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Invalidate auth cache on mount to ensure fresh data after login redirect
+  useEffect(() => {
+    // Only invalidate if we might have just logged in (no cached auth data yet)
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  }, []);
+
   // Show loading state while checking authentication
   if (isLoading) {
     return (
@@ -95,7 +87,7 @@ function AuthLayout({ style }: { style: Record<string, string> }) {
 
   // Show landing page for non-authenticated users (no sidebar)
   if (!isAuthenticated) {
-    return <Router />;
+    return <Router isAuthenticated={false} />;
   }
 
   // Show app with sidebar for authenticated users
@@ -112,7 +104,7 @@ function AuthLayout({ style }: { style: Record<string, string> }) {
             </div>
           </header>
           <main className="flex-1 overflow-auto p-6">
-            <Router />
+            <Router isAuthenticated={true} />
           </main>
         </div>
       </div>
