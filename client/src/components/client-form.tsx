@@ -27,6 +27,10 @@ const clientFormSchema = z.object({
   cnpj: z.string().min(14, "CNPJ inválido"),
   plan: z.string().min(1, "Plano é obrigatório"),
   monthlyValue: z.string().min(1, "Valor mensal é obrigatório"),
+  dueDay: z.string().refine((val) => {
+    const num = parseInt(val);
+    return num >= 1 && num <= 31;
+  }, "Dia deve estar entre 1 e 31"),
   status: z.string().min(1, "Status é obrigatório"),
 });
 
@@ -49,6 +53,7 @@ export function ClientForm({ onSubmit, onCancel, initialData }: ClientFormProps)
       cnpj: initialData.cnpj || "",
       plan: initialData.plan || "",
       monthlyValue: initialData.monthlyValue || "",
+      dueDay: initialData.dueDay || "10",
       status: initialData.status || "active",
     } : {
       companyName: "",
@@ -58,6 +63,7 @@ export function ClientForm({ onSubmit, onCancel, initialData }: ClientFormProps)
       cnpj: "",
       plan: "",
       monthlyValue: "",
+      dueDay: "10",
       status: "active",
     },
   });
@@ -167,6 +173,20 @@ export function ClientForm({ onSubmit, onCancel, initialData }: ClientFormProps)
                 <FormLabel>Valor Mensal (R$) *</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-monthly-value" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dueDay"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Dia de Vencimento *</FormLabel>
+                <FormControl>
+                  <Input type="number" min="1" max="31" placeholder="10" {...field} data-testid="input-due-day" />
                 </FormControl>
                 <FormMessage />
               </FormItem>

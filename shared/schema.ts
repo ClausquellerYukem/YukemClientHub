@@ -79,6 +79,7 @@ export const clients = pgTable("clients", {
   cnpj: text("cnpj").notNull(),
   plan: text("plan").notNull(),
   monthlyValue: decimal("monthly_value", { precision: 10, scale: 2 }).notNull(),
+  dueDay: text("due_day").notNull().default("10"), // Dia de vencimento (1-31)
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
