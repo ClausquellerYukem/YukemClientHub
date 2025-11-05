@@ -9,7 +9,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { CompanySelector } from "@/components/company-selector";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect } from "react";
 import Dashboard from "@/pages/dashboard";
 import Clients from "@/pages/clients";
 import Financial from "@/pages/financial";
@@ -65,12 +64,6 @@ export default function App() {
 // Layout with authentication-aware UI - Reference: blueprint:javascript_log_in_with_replit
 function AuthLayout({ style }: { style: Record<string, string> }) {
   const { isAuthenticated, isLoading } = useAuth();
-
-  // Invalidate auth cache on mount to ensure fresh data after login redirect
-  useEffect(() => {
-    // Only invalidate if we might have just logged in (no cached auth data yet)
-    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-  }, []);
 
   // Show loading state while checking authentication
   if (isLoading) {

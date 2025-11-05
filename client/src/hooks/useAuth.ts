@@ -5,7 +5,8 @@ import type { User } from "@shared/schema";
 export function useAuth() {
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
-    retry: false,
+    retry: 2, // Retry up to 2 times to handle session establishment delays
+    retryDelay: 200, // Wait 200ms between retries
     staleTime: 1 * 60 * 1000, // Cache for 1 minute to prevent excessive refetches
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     refetchOnWindowFocus: false, // Don't refetch on window focus
