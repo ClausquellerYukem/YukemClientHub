@@ -30,6 +30,7 @@ export function CompanySelector() {
       queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/boleto/config"] });
       toast({
         title: "Empresa alterada",
         description: "A empresa ativa foi alterada com sucesso",

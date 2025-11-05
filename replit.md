@@ -87,7 +87,11 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
   - Returns 403 Forbidden if unauthorized access attempted
   - Prevents privilege escalation across tenant boundaries
 - **Automatic Cache Invalidation**: Refreshes all relevant data after company switch
-  - User profile, clients list, licenses, invoices, dashboard statistics
+  - User profile, clients list, licenses, invoices, dashboard statistics, boleto config
 - **Toast Notifications**: User feedback when company successfully changed
-- **Data Isolation**: All create operations use user's activeCompanyId
+- **Data Isolation**: All operations use user's activeCompanyId for filtering
+  - **getCompanyIdForUser() helper**: Returns activeCompanyId when set (for both admins and regular users), undefined only for admins without activeCompanyId
+  - All read operations (GET /api/clients, /api/licenses, /api/invoices, etc.) filter by activeCompanyId
+  - All create operations use user's activeCompanyId
   - Fixes "erro ao salvar cliente" - client creation now works with proper company context
+  - **Critical Fix (Nov 5, 2025)**: Admin users now correctly see filtered data based on selected company instead of all companies

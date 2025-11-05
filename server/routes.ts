@@ -6,23 +6,25 @@ import { z } from "zod";
 import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replitAuth";
 
 // Helper function to get companyId for multi-tenant data isolation
-// Returns undefined for admins (they can see all companies)
-// Returns activeCompanyId for regular users (throws if not set)
+// Returns activeCompanyId if user has one set (for both admins and regular users)
+// Returns undefined only for admins without activeCompanyId (they can see all companies)
+// Throws error for regular users without activeCompanyId
 async function getCompanyIdForUser(req: any): Promise<string | undefined> {
   const userId = req.user.claims.sub;
   const user = await storage.getUser(userId);
   
-  // Admin users can see all companies
+  // If user has an active company selected, always use it (for both admins and regular users)
+  if (user?.activeCompanyId) {
+    return user.activeCompanyId;
+  }
+  
+  // Admin users without active company can see all companies
   if (user?.role === 'admin') {
     return undefined;
   }
   
   // Regular users must have an active company
-  if (!user?.activeCompanyId) {
-    throw new Error('User does not have an active company set');
-  }
-  
-  return user.activeCompanyId;
+  throw new Error('User does not have an active company set');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
