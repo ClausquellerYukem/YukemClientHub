@@ -145,3 +145,29 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
   - Validation errors, not found errors, and generic failures
   - Consistent user experience with localized feedback
 - **Production-Ready**: Architect-approved with secure key generation and complete error handling
+
+### Authentication Flow Fix (Completed - Nov 5, 2025)
+- **Issue**: System froze with infinite loading screen after login
+  - Backend returned 200 but frontend never rendered Dashboard
+  - Multiple GET /api/auth/user requests observed
+- **Root Cause Analysis**:
+  1. Duplicate useAuth() calls in Router and AuthLayout components
+  2. Stale cache showing null after OAuth callback redirect
+  3. Render loop where Router remounts triggered fresh queries before previous settled
+- **Fixes Applied**:
+  - **Single Source of Truth**: Removed useAuth() from Router component
+    - Router now receives `isAuthenticated` prop from AuthLayout
+    - AuthLayout is the only component calling useAuth()
+    - Eliminates render loop and duplicate query triggers
+  - **Cache Invalidation**: Added useEffect in AuthLayout to invalidate `/api/auth/user` cache on mount
+    - Ensures fresh auth data fetched after OAuth redirect from /api/callback
+    - Prevents stale null/401 cache from blocking dashboard render
+  - **Optimized Query Settings** (client/src/hooks/useAuth.ts):
+    - staleTime: 1 minute (prevents excessive refetches while maintaining freshness)
+    - gcTime: 5 minutes (keeps data in cache)
+    - refetchOnWindowFocus: false (avoids unnecessary refetches)
+- **Testing**: End-to-end login flow validated with playwright
+  - User clicks login → OIDC flow → callback → Dashboard renders successfully
+  - No infinite loading states
+  - No excessive duplicate requests
+- **Production-Ready**: Architect-approved, no performance or security issues
