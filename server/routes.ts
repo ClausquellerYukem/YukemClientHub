@@ -256,6 +256,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/invoices/generate", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const { clientId } = req.body;
+      
+      if (!clientId) {
+        return res.status(400).json({ error: "clientId is required" });
+      }
+      
+      // Get client to retrieve dueDay and monthlyValue
+      const client = await storage.getClient(clientId, companyId);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+      
+      // Calculate due date based on client's dueDay
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth(); // 0-indexed
+      const dueDay = parseInt(client.dueDay);
+      
+      // Create due date for current month
+      const dueDate = new Date(currentYear, currentMonth, dueDay);
+      
+      // Create the invoice
+      const invoiceData = {
+        companyId: client.companyId,
+        clientId: client.id,
+        amount: client.monthlyValue,
+        dueDate: dueDate,
+        status: "pending" as const,
+      };
+      
+      const invoice = await storage.createInvoice(invoiceData);
+      res.status(201).json(invoice);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate invoice" });
+    }
+  });
+
   app.patch("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'update'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
