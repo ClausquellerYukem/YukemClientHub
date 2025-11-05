@@ -6,6 +6,10 @@ export function useAuth() {
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     retry: false,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes to prevent excessive refetches
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on mount if data exists
     // Custom queryFn that returns null on 401 instead of throwing
     queryFn: async () => {
       const res = await fetch("/api/auth/user", {
