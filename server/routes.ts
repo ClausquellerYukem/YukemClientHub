@@ -185,13 +185,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { clientId } = req.body;
       
       if (!clientId) {
-        return res.status(400).json({ error: "clientId is required" });
+        return res.status(400).json({ error: "O ID do cliente é obrigatório" });
       }
       
       // SECURITY: Get client with company isolation to prevent cross-tenant license generation
       const client = await storage.getClient(clientId, companyId);
       if (!client) {
-        return res.status(404).json({ error: "Client not found or access denied" });
+        return res.status(404).json({ error: "Cliente não encontrado ou acesso negado" });
       }
       
       // Check for duplicate license: verify if there's already an active license for this client
@@ -206,14 +206,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Generate unique license key (format: XXXX-XXXX-XXXX-XXXX)
-      const { nanoid } = await import('nanoid');
+      // Generate unique license key (format: XXXX-XXXX-XXXX-XXXX with only alphanumeric uppercase)
+      const { customAlphabet } = await import('nanoid');
+      const generateSegment = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4);
       const generateLicenseKey = () => {
-        const part1 = nanoid(4).toUpperCase();
-        const part2 = nanoid(4).toUpperCase();
-        const part3 = nanoid(4).toUpperCase();
-        const part4 = nanoid(4).toUpperCase();
-        return `${part1}-${part2}-${part3}-${part4}`;
+        return `${generateSegment()}-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
       };
       
       // Calculate expiration date (1 year from now)
@@ -233,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(license);
     } catch (error) {
       console.error("Error generating license:", error);
-      res.status(500).json({ error: "Failed to generate license" });
+      res.status(500).json({ error: "Falha ao gerar licença" });
     }
   });
 
@@ -320,19 +317,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { clientId } = req.body;
       
       if (!clientId) {
-        return res.status(400).json({ error: "clientId is required" });
+        return res.status(400).json({ error: "O ID do cliente é obrigatório" });
       }
       
       // SECURITY: Get client with company isolation to prevent cross-tenant invoice generation
       const client = await storage.getClient(clientId, companyId);
       if (!client) {
-        return res.status(404).json({ error: "Client not found or access denied" });
+        return res.status(404).json({ error: "Cliente não encontrado ou acesso negado" });
       }
       
       // Validate dueDay is a valid number between 1-31
       const dueDay = client.dueDay;
       if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
-        return res.status(400).json({ error: "Invalid dueDay in client record" });
+        return res.status(400).json({ error: "Dia de vencimento inválido no cadastro do cliente" });
       }
       
       // Calculate due date based on client's dueDay (handles month overflow)
@@ -383,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(invoice);
     } catch (error) {
       console.error("Error generating invoice:", error);
-      res.status(500).json({ error: "Failed to generate invoice" });
+      res.status(500).json({ error: "Falha ao gerar fatura" });
     }
   });
 
