@@ -95,3 +95,26 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
   - All create operations use user's activeCompanyId
   - Fixes "erro ao salvar cliente" - client creation now works with proper company context
   - **Critical Fix (Nov 5, 2025)**: Admin users now correctly see filtered data based on selected company instead of all companies
+
+### Automated Invoice Generation by Due Date (Completed - Nov 5, 2025)
+- **Schema Enhancement**: Added `dueDay` field to clients table
+  - Integer field (1-31) representing the day of month for invoice due date
+  - Validated with Zod: min(1).max(31)
+  - Form uses z.coerce.number() for proper numeric input handling
+- **Invoice Generation Endpoint**: POST /api/invoices/generate
+  - Accepts clientId in request body
+  - Calculates due date based on client's dueDay + current month/year
+  - Handles month overflow (e.g., day 31 in February becomes last day of month)
+  - Normalized date comparison prevents same-day bugs (compares calendar days, not timestamps)
+  - Multi-tenant security: validates client belongs to user's activeCompanyId
+  - Returns 201 with created invoice on success
+- **UI Integration**: "Gerar Fatura" button in clients table
+  - FileText icon button in each client row (data-testid="button-generate-invoice-{clientId}")
+  - Loading state during generation
+  - Toast notification on success: "Fatura gerada com sucesso!"
+- **Date Logic Details**:
+  - Uses normalized calendar day comparison (not timestamps) to prevent time-of-day issues
+  - If dueDay exceeds days in current month, sets to last day of month
+  - If calculated due date is in the past, uses next month
+  - All date calculations handle edge cases (leap years, short months, etc.)
+- **Production-Ready**: Architect-approved with comprehensive edge case handling and security validation
