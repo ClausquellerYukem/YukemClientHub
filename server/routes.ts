@@ -454,22 +454,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'read'), async (req, res) => {
     try {
-      const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
-      const user = await storage.getUser(userId);
-      const isAdmin = user?.role === 'admin';
+      const companyId = await getCompanyIdForUser(req);
       
-      let companyId: string | undefined;
-      
-      if (isAdmin) {
-        // Admins MUST specify companyId explicitly via query parameter
-        companyId = req.query.companyId as string;
-        if (!companyId) {
-          return res.status(400).json({ error: "Admins must specify ?companyId=xxx" });
-        }
-      } else {
-        // Regular users use their active company
-        companyId = await getCompanyIdForUser(req);
+      if (!companyId) {
+        return res.status(400).json({ error: "Por favor, selecione uma empresa ativa" });
       }
       
       const config = await storage.getBoletoConfig(companyId);
@@ -490,29 +478,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'update'), async (req, res) => {
     try {
-      const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
-      const user = await storage.getUser(userId);
-      const isAdmin = user?.role === 'admin';
+      const companyId = await getCompanyIdForUser(req);
       
-      const validatedData = insertBoletoConfigSchema.parse(req.body);
-      let companyId: string;
-      
-      if (isAdmin) {
-        // Admins MUST specify companyId in payload
-        if (!validatedData.companyId) {
-          return res.status(400).json({ error: "Admins must specify companyId in payload" });
-        }
-        companyId = validatedData.companyId;
-      } else {
-        // Regular users: always use their active company (enforce isolation)
-        const userCompanyId = await getCompanyIdForUser(req);
-        if (!userCompanyId) {
-          return res.status(400).json({ error: "Active company not set" });
-        }
-        companyId = userCompanyId;
-        validatedData.companyId = companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Por favor, selecione uma empresa ativa" });
       }
+      
+      // Inject companyId before validation (users don't send it in body)
+      const dataToValidate = { ...req.body, companyId };
+      const validatedData = insertBoletoConfigSchema.parse(dataToValidate);
       
       const config = await storage.saveBoletoConfig(validatedData);
       res.json(config);
