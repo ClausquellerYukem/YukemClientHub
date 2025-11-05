@@ -120,10 +120,6 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Email is required for user upsert');
     }
     
-    // Automatically set admin role for @yukem.com emails (for testing/demo)
-    const isYukemEmail = userData.email.endsWith('@yukem.com');
-    const roleToAssign = isYukemEmail ? 'admin' : (userData.role || 'user');
-    
     // Check if user exists by email first
     const [existingUser] = await db
       .select()
@@ -135,13 +131,17 @@ export class DatabaseStorage implements IStorage {
     
     if (existingUser) {
       // Update existing user (keep same ID to avoid FK violations)
+      // IMPORTANT: Preserve existing role unless it's a @yukem.com email (auto-admin)
+      const isYukemEmail = userData.email.endsWith('@yukem.com');
+      const roleToUpdate = isYukemEmail ? 'admin' : existingUser.role;
+      
       const [updated] = await db
         .update(users)
         .set({
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
-          role: roleToAssign,
+          role: roleToUpdate,
           updatedAt: new Date(),
         })
         .where(eq(users.id, existingUser.id))
@@ -149,6 +149,10 @@ export class DatabaseStorage implements IStorage {
       user = updated;
     } else {
       // Insert new user (let database generate ID to avoid collisions)
+      // Automatically set admin role for @yukem.com emails (for testing/demo)
+      const isYukemEmail = userData.email.endsWith('@yukem.com');
+      const roleToAssign = isYukemEmail ? 'admin' : (userData.role || 'user');
+      
       const [inserted] = await db
         .insert(users)
         .values({
