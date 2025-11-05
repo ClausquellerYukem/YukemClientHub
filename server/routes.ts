@@ -265,22 +265,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "clientId is required" });
       }
       
-      // Get client to retrieve dueDay and monthlyValue
+      // SECURITY: Get client with company isolation to prevent cross-tenant invoice generation
       const client = await storage.getClient(clientId, companyId);
       if (!client) {
-        return res.status(404).json({ error: "Client not found" });
+        return res.status(404).json({ error: "Client not found or access denied" });
       }
       
-      // Calculate due date based on client's dueDay
+      // Validate dueDay is a valid number between 1-31
+      const dueDay = client.dueDay;
+      if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
+        return res.status(400).json({ error: "Invalid dueDay in client record" });
+      }
+      
+      // Calculate due date based on client's dueDay (handles month overflow)
       const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth(); // 0-indexed
-      const dueDay = parseInt(client.dueDay);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Normalize to midnight for comparison
+      let dueDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
       
-      // Create due date for current month
-      const dueDate = new Date(currentYear, currentMonth, dueDay);
+      // Handle overflow for short months (e.g., Feb 31 becomes Mar 3)
+      // Set to last day of month if dueDay exceeds month's days
+      if (dueDate.getDate() !== dueDay) {
+        // Overflow occurred, set to last day of current month
+        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      }
       
-      // Create the invoice
+      // If calculated due date is in the past (compare dates only, not times), use next month
+      if (dueDate < today) {
+        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
+        // Handle overflow again for next month
+        if (dueDate.getDate() !== dueDay) {
+          dueDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+        }
+      }
+      
+      // Create the invoice with enforced company isolation
       const invoiceData = {
         companyId: client.companyId,
         clientId: client.id,
@@ -292,6 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invoice = await storage.createInvoice(invoiceData);
       res.status(201).json(invoice);
     } catch (error) {
+      console.error("Error generating invoice:", error);
       res.status(500).json({ error: "Failed to generate invoice" });
     }
   });

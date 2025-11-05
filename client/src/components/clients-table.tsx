@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Edit, Eye, Trash2 } from "lucide-react";
+import { Search, Edit, Eye, Trash2, FileText } from "lucide-react";
 
 interface Client {
   id: string;
@@ -27,9 +27,11 @@ interface ClientsTableProps {
   onEdit?: (id: string) => void;
   onView?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onGenerateInvoice?: (id: string) => void;
+  isGeneratingInvoice?: boolean;
 }
 
-export function ClientsTable({ clients, onEdit, onView, onDelete }: ClientsTableProps) {
+export function ClientsTable({ clients, onEdit, onView, onDelete, onGenerateInvoice, isGeneratingInvoice }: ClientsTableProps) {
   const [search, setSearch] = useState("");
 
   const filteredClients = clients.filter((client) =>
@@ -113,6 +115,16 @@ export function ClientsTable({ clients, onEdit, onView, onDelete }: ClientsTable
                       data-testid={`button-edit-${client.id}`}
                     >
                       <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onGenerateInvoice?.(client.id)}
+                      data-testid={`button-generate-invoice-${client.id}`}
+                      title="Gerar Fatura"
+                      disabled={isGeneratingInvoice}
+                    >
+                      <FileText className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"

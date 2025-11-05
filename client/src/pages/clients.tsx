@@ -102,6 +102,26 @@ export default function Clients() {
     },
   });
 
+  const generateInvoiceMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      return apiRequest("POST", "/api/invoices/generate", { clientId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Fatura gerada",
+        description: "A fatura foi gerada com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar a fatura.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleView = (id: string) => {
     const client = clients.find(c => c.id === id);
     if (client) {
@@ -118,6 +138,10 @@ export default function Clients() {
 
   const handleDelete = (id: string) => {
     setDeletingClientId(id);
+  };
+
+  const handleGenerateInvoice = (id: string) => {
+    generateInvoiceMutation.mutate(id);
   };
 
   const confirmDelete = () => {
@@ -174,6 +198,8 @@ export default function Clients() {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onGenerateInvoice={handleGenerateInvoice}
+        isGeneratingInvoice={generateInvoiceMutation.isPending}
       />
 
       {/* Diálogo de Criar Cliente */}

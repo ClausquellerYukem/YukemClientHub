@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, boolean, jsonb, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, boolean, jsonb, index, unique, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -79,7 +79,7 @@ export const clients = pgTable("clients", {
   cnpj: text("cnpj").notNull(),
   plan: text("plan").notNull(),
   monthlyValue: decimal("monthly_value", { precision: 10, scale: 2 }).notNull(),
-  dueDay: text("due_day").notNull().default("10"), // Dia de vencimento (1-31)
+  dueDay: integer("due_day").notNull().default(10), // Dia de vencimento (1-31)
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -143,6 +143,8 @@ export const rolePermissions = pgTable("role_permissions", {
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
   createdAt: true,
+}).extend({
+  dueDay: z.number().int().min(1).max(31),
 });
 
 export const insertLicenseSchema = createInsertSchema(licenses).omit({
