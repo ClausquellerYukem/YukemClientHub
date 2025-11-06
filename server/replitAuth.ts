@@ -35,14 +35,17 @@ export function getSession() {
   
   return session({
     secret: process.env.SESSION_SECRET!,
+    name: 'yukem.sid', // Custom session cookie name
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    proxy: true, // Trust proxy in production (Cloud Run)
     cookie: {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'lax', // Use 'lax' for better compatibility with OAuth redirects
       maxAge: sessionTtl,
+      path: '/', // Ensure cookie is sent for all paths
     },
   });
 }

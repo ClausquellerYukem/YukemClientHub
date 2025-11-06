@@ -146,6 +146,26 @@ PostgreSQL, specifically Neon serverless PostgreSQL, is used for data persistenc
   - Consistent user experience with localized feedback
 - **Production-Ready**: Architect-approved with secure key generation and complete error handling
 
+### OAuth Callback Redirect Issue Fix (Completed - Nov 6, 2025)
+- **Issue**: After clicking "Allow" on OAuth consent screen, user redirected back to landing page instead of dashboard
+  - Backend logs showed successful callback and session creation
+  - Multiple GET /api/auth/user requests returning 200
+  - Session cookies not being persisted/sent in production environment
+- **Root Cause**: Session cookie configuration incompatible with Cloud Run proxy
+  - Missing `proxy: true` setting prevented proper HTTPS cookie handling
+  - No explicit cookie path caused inconsistent cookie delivery
+- **Fixes Applied** (server/replitAuth.ts):
+  - Added `proxy: true` to trust Cloud Run/Replit proxy for secure cookie handling
+  - Added custom cookie name `yukem.sid` to avoid conflicts
+  - Added explicit `path: '/'` to ensure cookies sent on all routes
+  - Maintained `sameSite: 'lax'` for OAuth redirect compatibility
+  - Added detailed logging in callback handler for debugging
+- **Frontend Improvements** (client/src/hooks/useAuth.ts):
+  - Set `staleTime: 0` to always fetch fresh auth data
+  - Added console logging for debugging auth state
+  - Removed retry logic that was causing duplicate requests
+- **Production-Ready**: Session cookies now properly persist across OAuth flow in production
+
 ### Authentication Flow Fix (Completed - Nov 5, 2025)
 - **Issue**: System froze with infinite loading screen after login
   - Backend returned 200 but frontend never rendered Dashboard
