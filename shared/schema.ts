@@ -102,6 +102,15 @@ export const invoices = pgTable("invoices", {
   dueDate: timestamp("due_date").notNull(),
   paidAt: timestamp("paid_at"),
   status: text("status").notNull().default("pending"),
+  
+  // Boleto data from external API
+  boletoParcelaId: text("boleto_parcela_id"),
+  boletoQrcodeId: text("boleto_qrcode_id"),
+  boletoQrcode: text("boleto_qrcode"),
+  boletoQrcodeBase64: text("boleto_qrcode_base64"),
+  boletoUrl: text("boleto_url"),
+  boletoGeneratedAt: timestamp("boleto_generated_at"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
