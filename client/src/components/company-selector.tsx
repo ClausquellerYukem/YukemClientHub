@@ -9,7 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Settings } from "lucide-react";
 import type { Company } from "@shared/schema";
 
 export function CompanySelector() {
@@ -56,6 +57,27 @@ export function CompanySelector() {
     },
   });
 
+  const initialSetupMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/initial-setup", {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Configuração concluída!",
+        description: data.message || `Você foi associado a ${data.totalCompanies} empresa(s)`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro na configuração",
+        description: error?.error || "Falha ao realizar configuração inicial",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCompanyChange = (companyId: string) => {
     setActiveCompanyMutation.mutate(companyId);
   };
@@ -82,9 +104,30 @@ export function CompanySelector() {
     );
   }
 
-  // Show "no companies" state
+  // Show "no companies" state with setup button for admins
   if (!companies || companies.length === 0) {
     console.warn('[CompanySelector] No companies found for user');
+    
+    // If user is admin, show setup button
+    if (user?.role === 'admin') {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => initialSetupMutation.mutate()}
+          disabled={initialSetupMutation.isPending}
+          className="gap-2"
+          data-testid="button-initial-setup"
+        >
+          <Settings className="h-4 w-4" />
+          <span>
+            {initialSetupMutation.isPending ? "Configurando..." : "Configuração Inicial"}
+          </span>
+        </Button>
+      );
+    }
+    
+    // For non-admin users, just show the message
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-sm text-muted-foreground">
         <Building2 className="h-4 w-4" />

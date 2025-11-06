@@ -1145,6 +1145,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ADMIN: Initial setup endpoint - Associates current admin user with all existing companies
+  app.post("/api/admin/initial-setup", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const sessionUser = req.user as any;
+      const userId = sessionUser.claims.sub;
+      
+      console.log('[POST /api/admin/initial-setup] Starting initial setup for userId:', userId);
+      
+      // Get all companies
+      const allCompanies = await storage.getAllCompanies();
+      console.log('[POST /api/admin/initial-setup] Found', allCompanies.length, 'companies');
+      
+      if (allCompanies.length === 0) {
+        return res.status(400).json({ 
+          error: "Nenhuma empresa encontrada. Crie empresas primeiro." 
+        });
+      }
+      
+      // Get user's current companies
+      const currentCompanies = await storage.getUserCompanies(userId);
+      const currentCompanyIds = new Set(currentCompanies.map(c => c.id));
+      console.log('[POST /api/admin/initial-setup] User already has', currentCompanies.length, 'companies');
+      
+      // Associate user with all companies they don't have yet
+      const associations = [];
+      for (const company of allCompanies) {
+        if (!currentCompanyIds.has(company.id)) {
+          try {
+            const association = await storage.assignUserToCompany({
+              userId,
+              companyId: company.id,
+            });
+            associations.push(association);
+            console.log('[POST /api/admin/initial-setup] Associated user with company:', company.name);
+          } catch (error: any) {
+            // Skip if already exists
+            if (error.code === '23505') {
+              console.log('[POST /api/admin/initial-setup] User already associated with:', company.name);
+            } else {
+              throw error;
+            }
+          }
+        }
+      }
+      
+      // Set first company as active if user doesn't have one
+      const user = await storage.getUser(userId);
+      if (!user?.activeCompanyId && allCompanies.length > 0) {
+        await storage.setActiveCompany(userId, allCompanies[0].id);
+        console.log('[POST /api/admin/initial-setup] Set active company to:', allCompanies[0].name);
+      }
+      
+      // Return final state
+      const finalCompanies = await storage.getUserCompanies(userId);
+      
+      console.log('[POST /api/admin/initial-setup] Setup complete. User now has', finalCompanies.length, 'companies');
+      
+      res.json({
+        success: true,
+        message: `Configuração concluída! Você foi associado a ${finalCompanies.length} empresa(s).`,
+        newAssociations: associations.length,
+        totalCompanies: finalCompanies.length,
+        companies: finalCompanies.map(c => ({ id: c.id, name: c.name }))
+      });
+    } catch (error) {
+      console.error("[POST /api/admin/initial-setup] Error:", error);
+      res.status(500).json({ error: "Falha ao realizar configuração inicial" });
+    }
+  });
+
   // TEMPORARY: User data fix endpoint (only accessible when authenticated)
   app.post("/api/admin/fix-user-data", isAuthenticated, async (req: any, res) => {
     try {
