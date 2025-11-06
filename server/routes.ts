@@ -1078,10 +1078,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionUser = req.user as any;
       const userId = sessionUser.claims.sub;
+      console.log('[GET /api/user/companies] Fetching companies for userId:', userId);
       const companies = await storage.getUserCompanies(userId);
+      console.log('[GET /api/user/companies] Found', companies.length, 'companies:', companies.map(c => ({ id: c.id, name: c.name })));
       res.json(companies);
     } catch (error) {
-      console.error("Error fetching user companies:", error);
+      console.error("[GET /api/user/companies] Error fetching user companies:", error);
       res.status(500).json({ error: "Failed to fetch user companies" });
     }
   });

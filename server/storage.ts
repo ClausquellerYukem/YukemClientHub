@@ -660,17 +660,27 @@ export class DatabaseStorage implements IStorage {
 
   // User-Company operations
   async getUserCompanies(userId: string): Promise<Company[]> {
+    console.log('[getUserCompanies] Fetching companies for userId:', userId);
+    
     const userCompanyRecords = await db
       .select({ companyId: userCompanies.companyId })
       .from(userCompanies)
       .where(eq(userCompanies.userId, userId));
 
+    console.log('[getUserCompanies] Found', userCompanyRecords.length, 'user_company records:', userCompanyRecords);
+
     if (userCompanyRecords.length === 0) {
+      console.warn('[getUserCompanies] No user_company records found for userId:', userId);
       return [];
     }
 
     const companyIds = userCompanyRecords.map(uc => uc.companyId);
-    return await db.select().from(companies).where(inArray(companies.id, companyIds));
+    console.log('[getUserCompanies] Fetching companies with IDs:', companyIds);
+    
+    const companiesResult = await db.select().from(companies).where(inArray(companies.id, companyIds));
+    console.log('[getUserCompanies] Returning', companiesResult.length, 'companies');
+    
+    return companiesResult;
   }
 
   async assignUserToCompany(assignment: InsertUserCompany): Promise<UserCompany> {
