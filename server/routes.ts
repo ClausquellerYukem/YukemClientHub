@@ -12,28 +12,39 @@ import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replit
 async function getCompanyIdForUser(req: any): Promise<string | undefined> {
   // Use dbUserId from session if available, otherwise use OAuth ID
   const userId = req.user.dbUserId || req.user.claims.sub;
+  console.log('[getCompanyIdForUser] Looking for user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims.sub, 'Using:', userId);
+  
   let user = await storage.getUser(userId);
+  console.log('[getCompanyIdForUser] User found by ID?', user ? `YES (${user.email})` : 'NO');
   
   // Fallback: try by email if not found by ID (indexed lookup, efficient)
   if (!user && req.user.claims?.email) {
+    console.log('[getCompanyIdForUser] Trying to find by email:', req.user.claims.email);
     user = await storage.getUserByEmail(req.user.claims.email);
+    console.log('[getCompanyIdForUser] User found by email?', user ? `YES (${user.email})` : 'NO');
   }
   
   if (!user) {
+    console.error('[getCompanyIdForUser] ERROR: User not found in database');
     throw new Error('User not found');
   }
   
+  console.log('[getCompanyIdForUser] User found:', user.email, 'ID:', user.id, 'activeCompanyId:', user.activeCompanyId, 'role:', user.role);
+  
   // If user has an active company selected, always use it (for both admins and regular users)
   if (user.activeCompanyId) {
+    console.log('[getCompanyIdForUser] Returning activeCompanyId:', user.activeCompanyId);
     return user.activeCompanyId;
   }
   
   // Admin users without active company can see all companies
   if (user.role === 'admin') {
+    console.log('[getCompanyIdForUser] Admin user without activeCompanyId - returning undefined');
     return undefined;
   }
   
   // Regular users must have an active company
+  console.error('[getCompanyIdForUser] ERROR: Regular user does not have activeCompanyId set');
   throw new Error('User does not have an active company set');
 }
 
