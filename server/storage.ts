@@ -39,6 +39,7 @@ export interface IStorage {
   // User operations - Required for Replit Auth
   // Reference: blueprint:javascript_log_in_with_replit
   getUser(id: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
 
   getClient(id: string, companyId?: string): Promise<Client | undefined>;
@@ -114,26 +115,44 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     // Email is required for upsert
     if (!userData.email) {
       throw new Error('Email is required for user upsert');
     }
     
-    // Check if user exists by email first
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, userData.email))
-      .limit(1);
+    console.log('[storage.upsertUser] Starting upsert for email:', userData.email, 'OAuth ID:', userData.id);
+    
+    // Check if user exists by OAuth ID first (from claims.sub)
+    let existingUser: User | undefined;
+    if (userData.id) {
+      existingUser = await this.getUser(userData.id);
+      console.log('[storage.upsertUser] Found by OAuth ID?', existingUser ? 'YES' : 'NO');
+    }
+    
+    // If not found by ID, try by email
+    if (!existingUser) {
+      const [userByEmail] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, userData.email))
+        .limit(1);
+      existingUser = userByEmail;
+      console.log('[storage.upsertUser] Found by email?', existingUser ? 'YES' : 'NO');
+    }
     
     let user: User;
     
     if (existingUser) {
-      // Update existing user (keep same ID to avoid FK violations)
-      // IMPORTANT: Preserve existing role unless it's a @yukem.com email (auto-admin)
+      // Update existing user - KEEP existing ID (don't change PKs!)
       const isYukemEmail = userData.email.endsWith('@yukem.com');
       const roleToUpdate = isYukemEmail ? 'admin' : existingUser.role;
+      
+      console.log('[storage.upsertUser] Updating existing user ID:', existingUser.id);
       
       const [updated] = await db
         .update(users)
@@ -146,25 +165,39 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(users.id, existingUser.id))
         .returning();
-      user = updated;
+      
+      if (!updated) {
+        console.error('[storage.upsertUser] Failed to update user, returning existing');
+        user = existingUser;
+      } else {
+        user = updated;
+        console.log('[storage.upsertUser] User updated successfully, DB ID:', user.id);
+      }
     } else {
-      // Insert new user (let database generate ID to avoid collisions)
-      // Automatically set admin role for @yukem.com emails (for testing/demo)
+      // Insert new user with OAuth ID
       const isYukemEmail = userData.email.endsWith('@yukem.com');
       const roleToAssign = isYukemEmail ? 'admin' : (userData.role || 'user');
+      
+      console.log('[storage.upsertUser] Creating new user with OAuth ID:', userData.id);
       
       const [inserted] = await db
         .insert(users)
         .values({
+          id: userData.id, // Use OAuth ID for new users
           email: userData.email,
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
           role: roleToAssign,
-          // Do NOT include userData.id - let database generate via gen_random_uuid()
         })
         .returning();
+      
+      if (!inserted) {
+        throw new Error('Failed to insert user into database');
+      }
+      
       user = inserted;
+      console.log('[storage.upsertUser] User created successfully, DB ID:', user.id);
     }
     
     // Auto-assign role based on users.role field if user has no role assignments

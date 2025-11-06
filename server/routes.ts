@@ -34,17 +34,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth route to get current user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      console.log('[GET /api/auth/user] Fetching user for userId:', userId);
+      // Use dbUserId from session if available, otherwise use OAuth ID
+      const userId = req.user.dbUserId || req.user.claims.sub;
+      console.log('[GET /api/auth/user] Fetching user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims.sub, 'Using:', userId);
       
-      const user = await storage.getUser(userId);
-      console.log('[GET /api/auth/user] User found:', user ? 'YES' : 'NO', user?.email);
+      let user = await storage.getUser(userId);
+      console.log('[GET /api/auth/user] User found by ID?', user ? 'YES' : 'NO');
+      
+      // If not found by ID, try by email (fallback for existing users)
+      if (!user && req.user.claims?.email) {
+        console.log('[GET /api/auth/user] Trying to find by email:', req.user.claims.email);
+        const users = await storage.getAllUsers();
+        user = users.find(u => u.email === req.user.claims.email);
+        console.log('[GET /api/auth/user] User found by email?', user ? 'YES' : 'NO');
+      }
       
       if (!user) {
-        console.error('[GET /api/auth/user] User not found in database for userId:', userId);
+        console.error('[GET /api/auth/user] User not found in database');
         return res.status(404).json({ message: "User not found" });
       }
       
+      console.log('[GET /api/auth/user] Returning user:', user.email, 'ID:', user.id);
       res.json(user);
     } catch (error) {
       console.error("[GET /api/auth/user] Error fetching user:", error);

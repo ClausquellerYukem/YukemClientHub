@@ -62,18 +62,19 @@ function updateUserSession(
 
 async function upsertUser(
   claims: any,
-) {
+): Promise<User> {
   console.log('[upsertUser] Upserting user with sub:', claims["sub"], 'email:', claims["email"]);
   
   try {
-    await storage.upsertUser({
+    const user = await storage.upsertUser({
       id: claims["sub"],
       email: claims["email"],
       firstName: claims["first_name"],
       lastName: claims["last_name"],
       profileImageUrl: claims["profile_image_url"],
     });
-    console.log('[upsertUser] User upserted successfully');
+    console.log('[upsertUser] User upserted successfully, DB ID:', user.id);
+    return user;
   } catch (error) {
     console.error('[upsertUser] FAILED to upsert user:', error);
     throw error;
@@ -94,8 +95,27 @@ export async function setupAuth(app: Express) {
   ) => {
     const user = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+    
+    try {
+      // Upsert user and store the database user ID in session
+      const dbUser = await upsertUser(tokens.claims());
+      
+      if (!dbUser) {
+        console.error('[OAuth verify] upsertUser returned null/undefined!');
+        verified(new Error('Failed to create/update user'), undefined);
+        return;
+      }
+      
+      console.log('[OAuth verify] User upserted successfully - DB ID:', dbUser.id, 'Email:', dbUser.email);
+      
+      // Store the database user ID in the session for later retrieval
+      (user as any).dbUserId = dbUser.id;
+      
+      verified(null, user);
+    } catch (error) {
+      console.error('[OAuth verify] Failed to upsert user:', error);
+      verified(error as Error, undefined);
+    }
   };
 
   // Keep track of registered strategies
