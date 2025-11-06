@@ -1,0 +1,46 @@
+[useAuth] Current state - isLoading: true isAuthenticated: false user: undefined
+index-DDfeRUNT.js:372 [AuthLayout] Rendering - isAuthenticated: false isLoading: true
+index-DDfeRUNT.js:372 [AuthLayout] Showing loading skeleton
+index-DDfeRUNT.js:297 [useAuth] Fetching /api/auth/user...
+index-DDfeRUNT.js:297 [useAuth] Response status: 200
+index-DDfeRUNT.js:297 [useAuth] Got user data: comtecnologia.erp@gmail.com Full data: {id: '971b039c-c951-4687-baad-69baf9592596', email: 'comtecnologia.erp@gmail.com', firstName: 'Clausqueller', lastName: 'Mitome', profileImageUrl: null, …}
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:372 [AuthLayout] Rendering - isAuthenticated: true isLoading: false
+index-DDfeRUNT.js:372 [AuthLayout] User authenticated - showing Dashboard
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:297 [useAuth] Fetching /api/auth/user...
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:372 [AuthLayout] Rendering - isAuthenticated: true isLoading: false
+index-DDfeRUNT.js:372 [AuthLayout] User authenticated - showing Dashboard
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:297 [useAuth] Response status: 200
+index-DDfeRUNT.js:297 [useAuth] Got user data: comtecnologia.erp@gmail.com Full data: {id: '971b039c-c951-4687-baad-69baf9592596', email: 'comtecnologia.erp@gmail.com', firstName: 'Clausqueller', lastName: 'Mitome', profileImageUrl: null, …}
+index-DDfeRUNT.js:297 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-DDfeRUNT.js:364   POST https://yukem-client-hub-comtecnologiaer.replit.app/api/licenses/check-overdue 500 (Internal Server Error)
+mutationFn @ index-DDfeRUNT.js:364
+fn @ index-DDfeRUNT.js:48
+x @ index-DDfeRUNT.js:48
+start @ index-DDfeRUNT.js:48
+execute @ index-DDfeRUNT.js:48
+await in execute
+mutate @ index-DDfeRUNT.js:48
+(anônimo) @ index-DDfeRUNT.js:48
+(anônimo) @ index-DDfeRUNT.js:364
+Wm @ index-DDfeRUNT.js:40
+ul @ index-DDfeRUNT.js:40
+O6 @ index-DDfeRUNT.js:40
+Oo @ index-DDfeRUNT.js:40
+iP @ index-DDfeRUNT.js:40
+ho @ index-DDfeRUNT.js:38
+(anônimo) @ index-DDfeRUNT.js:40
+setTimeout
+i @ index-DDfeRUNT.js:48
+o @ index-DDfeRUNT.js:48
+batch @ index-DDfeRUNT.js:48
+$i @ index-DDfeRUNT.js:48
+setData @ index-DDfeRUNT.js:48
+onSuccess @ index-DDfeRUNT.js:48
+d @ index-DDfeRUNT.js:48
+index-DDfeRUNT.js:48   GET https://yukem-client-hub-comtecnologiaer.replit.app/api/stats/dashboard 500 (Internal Server Error)
