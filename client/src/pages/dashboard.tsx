@@ -12,9 +12,18 @@ interface DashboardStats {
   conversionRate: number;
 }
 
+interface MonthlyRevenue {
+  month: string;
+  revenue: number;
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats/dashboard"],
+  });
+
+  const { data: revenueData = [], isLoading: isLoadingRevenue, isError: isErrorRevenue } = useQuery<MonthlyRevenue[]>({
+    queryKey: ["/api/stats/monthly-revenue"],
   });
 
   // Automatic license blocking - Check overdue invoices on dashboard load
@@ -35,17 +44,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  //todo: remove mock functionality - replace with real revenue data from API
-  const revenueData = [
-    { month: "Jan", revenue: 12500 },
-    { month: "Fev", revenue: 15800 },
-    { month: "Mar", revenue: 14200 },
-    { month: "Abr", revenue: 18900 },
-    { month: "Mai", revenue: 21300 },
-    { month: "Jun", revenue: 19700 },
-  ];
-
-  if (isLoading || !stats) {
+  if (isLoading || !stats || isLoadingRevenue) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Carregando dashboard...</p>
@@ -99,7 +98,13 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <RevenueChart data={revenueData} />
+      {isErrorRevenue ? (
+        <div className="flex items-center justify-center h-64 bg-muted/50 rounded-lg">
+          <p className="text-muted-foreground">Erro ao carregar dados de receita mensal</p>
+        </div>
+      ) : (
+        <RevenueChart data={revenueData} />
+      )}
     </div>
   );
 }

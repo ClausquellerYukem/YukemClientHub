@@ -761,6 +761,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Monthly Revenue Chart - Real data from invoices
+  app.get("/api/stats/monthly-revenue", isAuthenticated, async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const invoices = await storage.getAllInvoices(companyId);
+      
+      // Get the last 6 months
+      const now = new Date();
+      const monthsData = [];
+      
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthName = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        
+        // Filter invoices for this month
+        const monthInvoices = invoices.filter(invoice => {
+          const invoiceDate = new Date(invoice.createdAt);
+          return invoiceDate.getMonth() + 1 === month && 
+                 invoiceDate.getFullYear() === year &&
+                 (invoice.status === 'paid' || invoice.status === 'pending');
+        });
+        
+        // Sum total revenue for this month
+        const revenue = monthInvoices.reduce((sum, invoice) => {
+          return sum + parseFloat(invoice.amount);
+        }, 0);
+        
+        monthsData.push({
+          month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+          revenue: revenue,
+        });
+      }
+      
+      res.json(monthsData);
+    } catch (error) {
+      console.error("Error fetching monthly revenue:", error);
+      res.status(500).json({ error: "Failed to fetch monthly revenue" });
+    }
+  });
+
   // Company Routes - Multi-tenant support
   app.get("/api/companies", isAuthenticated, requirePermission('companies', 'read'), async (req, res) => {
     try {
