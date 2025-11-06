@@ -68,6 +68,14 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, invoice: Partial<InsertInvoice>, companyId?: string): Promise<Invoice | undefined>;
   deleteInvoice(id: string, companyId?: string): Promise<boolean>;
+  updateInvoiceBoletoData(id: string, companyId: string, boletoData: {
+    boletoParcelaId: string;
+    boletoQrcodeId: string | null;
+    boletoQrcode: string | null;
+    boletoQrcodeBase64: string | null;
+    boletoUrl: string | null;
+    boletoGeneratedAt: Date;
+  }): Promise<Invoice | undefined>;
 
   getBoletoConfig(companyId?: string): Promise<BoletoConfig | undefined>;
   saveBoletoConfig(config: InsertBoletoConfig): Promise<BoletoConfig>;
@@ -439,6 +447,25 @@ export class DatabaseStorage implements IStorage {
     }
     const result = await db.delete(invoices).where(and(...conditions)).returning();
     return result.length > 0;
+  }
+
+  async updateInvoiceBoletoData(id: string, companyId: string, boletoData: {
+    boletoParcelaId: string;
+    boletoQrcodeId: string | null;
+    boletoQrcode: string | null;
+    boletoQrcodeBase64: string | null;
+    boletoUrl: string | null;
+    boletoGeneratedAt: Date;
+  }): Promise<Invoice | undefined> {
+    const [invoice] = await db
+      .update(invoices)
+      .set(boletoData)
+      .where(and(
+        eq(invoices.id, id),
+        eq(invoices.companyId, companyId)
+      ))
+      .returning();
+    return invoice;
   }
 
   async getBoletoConfig(companyId?: string): Promise<BoletoConfig | undefined> {

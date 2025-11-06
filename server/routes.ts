@@ -495,6 +495,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate boleto via external API
+  app.post("/api/invoices/:id/generate-boleto", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const invoiceId = req.params.id;
+      
+      // Get the invoice to ensure it belongs to the user's company
+      const invoice = await storage.getInvoice(invoiceId, companyId);
+      if (!invoice) {
+        return res.status(404).json({ error: "Fatura não encontrada" });
+      }
+      
+      // Get boleto configuration
+      const config = await storage.getBoletoConfig(companyId);
+      if (!config) {
+        return res.status(400).json({ error: "Configuração de boleto não encontrada. Configure primeiro na aba Configurações." });
+      }
+      
+      // Call external boleto API
+      const boletoApiUrl = "https://api.yukem.com.br/v1/geraboletoapi";
+      
+      const response = await fetch(boletoApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'app_token': config.appToken,
+          'access_token': config.accessToken,
+        },
+        body: JSON.stringify({
+          id: invoiceId,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Boleto API error:", errorText);
+        return res.status(response.status).json({ 
+          error: "Erro ao gerar boleto", 
+          details: errorText 
+        });
+      }
+      
+      const boletoData = await response.json();
+      
+      // Validate response structure
+      if (!boletoData.data || !boletoData.data.ParcelaId) {
+        console.error("Invalid boleto response:", boletoData);
+        return res.status(500).json({ 
+          error: "Resposta inválida da API de boletos",
+          details: "A API não retornou os dados esperados" 
+        });
+      }
+      
+      // Save boleto data to database
+      await storage.updateInvoiceBoletoData(invoiceId, companyId, {
+        boletoParcelaId: boletoData.data.ParcelaId,
+        boletoQrcodeId: boletoData.data.qrcodeId || null,
+        boletoQrcode: boletoData.data.qrcode || null,
+        boletoQrcodeBase64: boletoData.data.qrcodeBase64 || null,
+        boletoUrl: boletoData.data.url || null,
+        boletoGeneratedAt: new Date(),
+      });
+      
+      res.json(boletoData.data);
+    } catch (error) {
+      console.error("Error generating boleto:", error);
+      res.status(500).json({ error: "Falha ao gerar boleto" });
+    }
+  });
+
   app.get("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'read'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
