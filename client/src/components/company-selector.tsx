@@ -16,8 +16,18 @@ export function CompanySelector() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const { data: companies, isLoading } = useQuery<Company[]>({
+  const { data: companies, isLoading, error } = useQuery<Company[]>({
     queryKey: ["/api/user/companies"],
+  });
+
+  // Debug logging
+  console.log('[CompanySelector] State:', {
+    isLoading,
+    hasCompanies: !!companies,
+    companiesCount: companies?.length || 0,
+    companies,
+    activeCompanyId: user?.activeCompanyId,
+    error
   });
 
   const setActiveCompanyMutation = useMutation({
@@ -50,18 +60,55 @@ export function CompanySelector() {
     setActiveCompanyMutation.mutate(companyId);
   };
 
-  if (isLoading || !companies || companies.length === 0) {
-    return null;
+  // Show loading state
+  if (isLoading) {
+    console.log('[CompanySelector] Showing loading state');
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-sm text-muted-foreground animate-pulse">
+        <Building2 className="h-4 w-4" />
+        <span className="w-32 h-4 bg-muted-foreground/20 rounded"></span>
+      </div>
+    );
   }
 
-  if (companies.length === 1) {
+  // Show error state
+  if (error) {
+    console.error('[CompanySelector] Error loading companies:', error);
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-destructive/10 text-sm text-destructive">
+        <Building2 className="h-4 w-4" />
+        <span>Erro ao carregar empresas</span>
+      </div>
+    );
+  }
+
+  // Show "no companies" state
+  if (!companies || companies.length === 0) {
+    console.warn('[CompanySelector] No companies found for user');
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-sm text-muted-foreground">
+        <Building2 className="h-4 w-4" />
+        <span>Nenhuma empresa</span>
+      </div>
+    );
+  }
+
+  // Single company - just show the name
+  if (companies.length === 1) {
+    console.log('[CompanySelector] Single company mode:', companies[0].name);
+    return (
+      <div 
+        className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-sm text-muted-foreground"
+        data-testid="text-single-company"
+      >
         <Building2 className="h-4 w-4" />
         <span>{companies[0].name}</span>
       </div>
     );
   }
+
+  // Multiple companies - show dropdown
+  console.log('[CompanySelector] Multiple companies mode:', companies.length, 'companies');
 
   return (
     <Select
