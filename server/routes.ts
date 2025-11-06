@@ -10,16 +10,26 @@ import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replit
 // Returns undefined only for admins without activeCompanyId (they can see all companies)
 // Throws error for regular users without activeCompanyId
 async function getCompanyIdForUser(req: any): Promise<string | undefined> {
-  const userId = req.user.claims.sub;
-  const user = await storage.getUser(userId);
+  // Use dbUserId from session if available, otherwise use OAuth ID
+  const userId = req.user.dbUserId || req.user.claims.sub;
+  let user = await storage.getUser(userId);
+  
+  // Fallback: try by email if not found by ID (indexed lookup, efficient)
+  if (!user && req.user.claims?.email) {
+    user = await storage.getUserByEmail(req.user.claims.email);
+  }
+  
+  if (!user) {
+    throw new Error('User not found');
+  }
   
   // If user has an active company selected, always use it (for both admins and regular users)
-  if (user?.activeCompanyId) {
+  if (user.activeCompanyId) {
     return user.activeCompanyId;
   }
   
   // Admin users without active company can see all companies
-  if (user?.role === 'admin') {
+  if (user.role === 'admin') {
     return undefined;
   }
   
@@ -41,11 +51,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let user = await storage.getUser(userId);
       console.log('[GET /api/auth/user] User found by ID?', user ? 'YES' : 'NO');
       
-      // If not found by ID, try by email (fallback for existing users)
+      // If not found by ID, try by email (fallback for existing users) - indexed lookup
       if (!user && req.user.claims?.email) {
         console.log('[GET /api/auth/user] Trying to find by email:', req.user.claims.email);
-        const users = await storage.getAllUsers();
-        user = users.find(u => u.email === req.user.claims.email);
+        user = await storage.getUserByEmail(req.user.claims.email);
         console.log('[GET /api/auth/user] User found by email?', user ? 'YES' : 'NO');
       }
       

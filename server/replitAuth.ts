@@ -8,6 +8,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import type { User } from "@shared/schema";
 
 const getOidcConfig = memoize(
   async () => {
@@ -58,6 +59,32 @@ function updateUserSession(
   user.access_token = tokens.access_token;
   user.refresh_token = tokens.refresh_token;
   user.expires_at = user.claims?.exp;
+}
+
+// Helper function to get user from session with fallback strategy
+// Prevents issues where OAuth ID differs from database ID
+async function getUserFromSession(sessionUser: any) {
+  const { storage } = await import("./storage");
+  
+  // 1. Try dbUserId from session (most reliable for existing users)
+  if (sessionUser.dbUserId) {
+    const user = await storage.getUser(sessionUser.dbUserId);
+    if (user) return user;
+  }
+  
+  // 2. Try OAuth ID (works for new users)
+  if (sessionUser.claims?.sub) {
+    const user = await storage.getUser(sessionUser.claims.sub);
+    if (user) return user;
+  }
+  
+  // 3. Fallback to email lookup (indexed, efficient)
+  if (sessionUser.claims?.email) {
+    const user = await storage.getUserByEmail(sessionUser.claims.email);
+    if (user) return user;
+  }
+  
+  return undefined;
 }
 
 async function upsertUser(
@@ -225,12 +252,13 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    // Import storage dynamically to avoid circular dependency
-    const { storage } = await import("./storage");
-    const userId = sessionUser.claims.sub;
-    const user = await storage.getUser(userId);
+    const user = await getUserFromSession(sessionUser);
 
-    if (user?.role !== "admin") {
+    if (!user) {
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    if (user.role !== "admin") {
       return res.status(403).json({ error: "Acesso negado. Apenas administradores podem realizar esta ação." });
     }
 
@@ -251,22 +279,25 @@ export function requirePermission(resource: string, action: string): RequestHand
     }
 
     try {
-      const { storage } = await import("./storage");
-      const userId = sessionUser.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await getUserFromSession(sessionUser);
       
-      console.log(`[requirePermission] resource=${resource}, action=${action}, userId=${userId}, user=${JSON.stringify(user)}`);
+      if (!user) {
+        return res.status(401).json({ message: "Usuário não encontrado" });
+      }
+      
+      console.log(`[requirePermission] resource=${resource}, action=${action}, userId=${user.id}, user=${JSON.stringify(user)}`);
       
       // Admins (via users.role field) have implicit access to everything
       // This ensures backward compatibility with existing admin users
-      if (user?.role === "admin") {
+      if (user.role === "admin") {
         console.log(`[requirePermission] Admin access granted for ${resource}.${action}`);
         return next();
       }
       
       // Check role-based permissions for non-admin users
+      const { storage } = await import("./storage");
       const hasPermission = await storage.checkUserPermission(
-        userId,
+        user.id,
         resource as any,
         action as any
       );
