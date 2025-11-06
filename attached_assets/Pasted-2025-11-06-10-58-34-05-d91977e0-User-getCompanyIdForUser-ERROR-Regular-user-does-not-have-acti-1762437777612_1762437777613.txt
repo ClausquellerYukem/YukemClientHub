@@ -1,0 +1,81 @@
+2025-11-06 10:58:34.05
+d91977e0
+User
+[getCompanyIdForUser] ERROR: Regular user does not have activeCompanyId set
+2025-11-06 10:58:34.05
+d91977e0
+User
+Error fetching dashboard stats: Error: User does not have an active company set
+2025-11-06 10:58:34.05
+d91977e0
+User
+at getCompanyIdForUser (file:///home/runner/workspace/dist/index.js:924:9)
+2025-11-06 10:58:34.05
+d91977e0
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+2025-11-06 10:58:34.05
+d91977e0
+User
+at async file:///home/runner/workspace/dist/index.js:1432:25
+2025-11-06 10:58:34.09
+d91977e0
+User
+1:58:34 PM [express] GET /api/stats/dashboard 500 in 134ms :: {"error":"Failed to fetch stats"}
+2025-11-06 10:58:34.25
+d91977e0
+User
+1:58:34 PM [express] GET /api/user/companies 200 in 277ms :: []
+2025-11-06 10:58:34.29
+d91977e0
+User
+[GET /api/auth/user] Fetching user - dbUserId: 971b039c-c951-4687-baad-69baf9592596 OAuth ID: 39190869 Using: 971b039c-c951-4687-baad-69baf9592596
+2025-11-06 10:58:34.30
+d91977e0
+User
+[getCompanyIdForUser] Looking for user - dbUserId: 971b039c-c951-4687-baad-69baf9592596 OAuth ID: 39190869 Using: 971b039c-c951-4687-baad-69baf9592596
+2025-11-06 10:58:34.34
+d91977e0
+User
+[GET /api/auth/user] User found by ID? YES
+2025-11-06 10:58:34.34
+d91977e0
+User
+[GET /api/auth/user] Returning user: comtecnologia.erp@gmail.com ID: 971b039c-c951-4687-baad-69baf9592596
+2025-11-06 10:58:34.35
+d91977e0
+User
+[getCompanyIdForUser] ERROR: Regular user does not have activeCompanyId set
+2025-11-06 10:58:34.35
+d91977e0
+User
+[getCompanyIdForUser] User found by ID? YES (comtecnologia.erp@gmail.com)
+2025-11-06 10:58:34.35
+d91977e0
+User
+[getCompanyIdForUser] User found: comtecnologia.erp@gmail.com ID: 971b039c-c951-4687-baad-69baf9592596 activeCompanyId: null role: user
+2025-11-06 10:58:34.35
+d91977e0
+User
+Error checking overdue licenses: Error: User does not have an active company set
+2025-11-06 10:58:34.35
+d91977e0
+User
+at getCompanyIdForUser (file:///home/runner/workspace/dist/index.js:924:9)
+2025-11-06 10:58:34.35
+d91977e0
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-11-06 10:58:34.35
+d91977e0
+User
+at async file:///home/runner/workspace/dist/index.js:1261:25
+2025-11-06 10:58:34.39
+d91977e0
+User
+1:58:34 PM [express] GET /api/auth/user 200 in 415ms :: {"id":"971b039c-c951-4687-baad-69baf9592596"…
+2025-11-06 10:58:34.39
+d91977e0
+User
+1:58:34 PM [express] POST /api/licenses/check-overdue 500 in 405ms :: {"error":"Failed to check over…
