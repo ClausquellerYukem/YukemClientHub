@@ -6,6 +6,17 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
+**Boleto API Integration (Nov 6, 2025)**
+- Integrated external boleto generation API (api.yukem.com.br/v1/geraboletoapi)
+- Added boleto data fields to invoices table: ParcelaId, qrcodeId, qrcode, qrcodeBase64, url, generatedAt
+- Created POST /api/invoices/:id/generate-boleto endpoint that:
+  - Retrieves app_token and access_token from company's boleto configuration
+  - Calls external API with proper authentication headers
+  - Saves response data to database for future reference
+  - Returns URL for immediate printing in new browser tab
+- Frontend "Imprimir Boleto" button now uses new endpoint and opens boleto URL automatically
+- All boleto operations respect multi-tenant isolation (company-scoped)
+
 **Dashboard Metrics Fix (Nov 6, 2025)**
 - Fixed misleading month-over-month comparisons that showed fake percentages when no historical data existed
 - All dashboard cards now use aligned time windows for value/trend comparisons:
