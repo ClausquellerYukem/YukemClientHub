@@ -3,14 +3,22 @@ import { useEffect } from "react";
 import { StatCard } from "@/components/stat-card";
 import { RevenueChart } from "@/components/revenue-chart";
 import { Users, Key, CreditCard, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
-import type { Invoice } from "@shared/schema";
 
 interface DashboardStats {
   totalClients: number;
+  totalClientsTrend: { value: string; isPositive: boolean } | null;
   activeLicenses: number;
+  activeLicensesTrend: { value: string; isPositive: boolean } | null;
   monthlyRevenue: number;
+  monthlyRevenueTrend: { value: string; isPositive: boolean } | null;
   conversionRate: number;
+  conversionRateTrend: { value: string; isPositive: boolean } | null;
+  totalRevenue: number;
+  totalRevenueTrend: { value: string; isPositive: boolean } | null;
+  paidInvoicesCount: number;
+  paidInvoicesTrend: { value: string; isPositive: boolean } | null;
+  pendingInvoicesCount: number;
+  pendingInvoicesTrend: { value: string; isPositive: boolean } | null;
 }
 
 interface MonthlyRevenue {
@@ -25,10 +33,6 @@ export default function Dashboard() {
 
   const { data: revenueData = [], isLoading: isLoadingRevenue, isError: isErrorRevenue } = useQuery<MonthlyRevenue[]>({
     queryKey: ["/api/stats/monthly-revenue"],
-  });
-
-  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices"],
   });
 
   // Automatic license blocking - Check overdue invoices on dashboard load
@@ -49,7 +53,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (isLoading || !stats || isLoadingRevenue || isLoadingInvoices) {
+  if (isLoading || !stats || isLoadingRevenue) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Carregando dashboard...</p>
@@ -57,59 +61,54 @@ export default function Dashboard() {
     );
   }
 
-  // Financial stats
-  const paidInvoices = invoices.filter(i => i.status === "paid");
-  const pendingInvoices = invoices.filter(i => i.status === "pending");
-  const totalRevenue = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-
   const statsCards = [
     {
       title: "Total de Clientes",
       value: stats.totalClients.toString(),
       icon: Users,
-      trend: { value: "12%", isPositive: true },
+      trend: stats.totalClientsTrend,
       testId: "stat-total-clients",
     },
     {
       title: "Licenças Ativas",
       value: stats.activeLicenses.toString(),
       icon: Key,
-      trend: { value: "8%", isPositive: true },
+      trend: stats.activeLicensesTrend,
       testId: "stat-active-licenses",
     },
     {
       title: "Receita Mensal",
       value: `R$ ${(stats.monthlyRevenue / 1000).toFixed(1)}K`,
       icon: CreditCard,
-      trend: { value: "23%", isPositive: true },
+      trend: stats.monthlyRevenueTrend,
       testId: "stat-monthly-revenue",
     },
     {
       title: "Taxa de Conversão",
       value: `${stats.conversionRate.toFixed(1)}%`,
       icon: TrendingUp,
-      trend: { value: "2.4%", isPositive: true },
+      trend: stats.conversionRateTrend,
       testId: "stat-conversion-rate",
     },
     {
-      title: "Receita Total",
-      value: `R$ ${(totalRevenue / 1000).toFixed(1)}K`,
+      title: "Receita do Mês",
+      value: `R$ ${(stats.totalRevenue / 1000).toFixed(1)}K`,
       icon: DollarSign,
-      trend: { value: "23%", isPositive: true },
+      trend: stats.totalRevenueTrend,
       testId: "stat-total-revenue",
     },
     {
-      title: "Faturas Pagas",
-      value: paidInvoices.length.toString(),
+      title: "Faturas Pagas (Mês)",
+      value: stats.paidInvoicesCount.toString(),
       icon: TrendingUp,
-      trend: { value: "15%", isPositive: true },
+      trend: stats.paidInvoicesTrend,
       testId: "stat-paid-invoices",
     },
     {
-      title: "Pendentes",
-      value: pendingInvoices.length.toString(),
+      title: "Pendentes (Mês)",
+      value: stats.pendingInvoicesCount.toString(),
       icon: AlertCircle,
-      trend: { value: "5%", isPositive: false },
+      trend: stats.pendingInvoicesTrend,
       testId: "stat-pending-invoices",
     },
   ];

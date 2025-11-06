@@ -8,7 +8,7 @@ interface StatCardProps {
   trend?: {
     value: string;
     isPositive: boolean;
-  };
+  } | null;
   testId?: string;
 }
 

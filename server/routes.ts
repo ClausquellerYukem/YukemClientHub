@@ -698,17 +698,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stats/dashboard", isAuthenticated, async (req, res) => {
+  app.get("/api/stats/dashboard", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
       const clients = await storage.getAllClients(companyId);
       const licenses = await storage.getAllLicenses(companyId);
+      const invoices = await storage.getAllInvoices(companyId);
       
       // Get company details for revenue calculation
       const company = companyId ? await storage.getCompany(companyId) : null;
 
+      // Current month boundaries
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      
+      // Previous month boundaries
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+      // Current stats - using date-based calculations for consistency
       const activeClients = clients.filter(c => c.status === "active").length;
-      const activeLicenses = licenses.filter(l => l.isActive).length;
+      
+      // Count licenses that are currently active (activated before now, expires after now)
+      const activeLicenses = licenses.filter(l => {
+        const activatedAt = new Date(l.activatedAt);
+        const expiresAt = new Date(l.expiresAt);
+        return activatedAt <= now && expiresAt > now;
+      }).length;
       
       // New revenue calculation logic based on free license quota and revenue share percentage
       let monthlyRevenue = 0;
@@ -751,11 +768,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Calculate previous month stats for comparison
+      const prevMonthClients = clients.filter(c => {
+        const createdAt = new Date(c.createdAt);
+        return createdAt <= previousMonthEnd;
+      }).length;
+      
+      // Count licenses that were active at the end of previous month
+      // A license was active if it was activated before/during prev month AND hadn't expired yet
+      const prevMonthLicenses = licenses.filter(l => {
+        const activatedAt = new Date(l.activatedAt);
+        const expiresAt = new Date(l.expiresAt);
+        return activatedAt <= previousMonthEnd && expiresAt > previousMonthEnd;
+      }).length;
+
+      // Current month invoice metrics (paid invoices in THIS month)
+      const currentMonthPaidInvoices = invoices.filter(i => {
+        if (i.status !== "paid" || !i.paidAt) return false;
+        const paidDate = new Date(i.paidAt);
+        return paidDate >= currentMonthStart && paidDate <= currentMonthEnd;
+      });
+      
+      // Current month pending invoices (due in THIS month and not yet paid)
+      const currentMonthPendingInvoices = invoices.filter(i => {
+        if (!i.dueDate) return false;
+        const dueDate = new Date(i.dueDate);
+        if (!(dueDate >= currentMonthStart && dueDate <= currentMonthEnd)) return false;
+        // Consider pending if not paid yet OR paid after the current month ended
+        return !i.paidAt || new Date(i.paidAt) > currentMonthEnd;
+      });
+      
+      const currentMonthRevenue = currentMonthPaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+      
+      // Previous month invoice metrics
+      const prevMonthPaidInvoices = invoices.filter(i => {
+        if (i.status !== "paid" || !i.paidAt) return false;
+        const paidDate = new Date(i.paidAt);
+        return paidDate >= previousMonthStart && paidDate <= previousMonthEnd;
+      });
+      
+      // Previous month pending invoices (due LAST month and were not paid by end of that month)
+      const prevMonthPendingInvoices = invoices.filter(i => {
+        if (!i.dueDate) return false;
+        const dueDate = new Date(i.dueDate);
+        if (!(dueDate >= previousMonthStart && dueDate <= previousMonthEnd)) return false;
+        // Consider it was pending at end of previous month if not paid OR paid after previous month ended
+        return !i.paidAt || new Date(i.paidAt) > previousMonthEnd;
+      });
+      
+      const prevMonthRevenue = prevMonthPaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+
+      // Helper to calculate trend
+      const calculateTrend = (current: number, previous: number) => {
+        if (previous === 0) return null; // No previous data
+        const change = ((current - previous) / previous) * 100;
+        return {
+          value: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
+          isPositive: change > 0
+        };
+      };
+
       const stats = {
         totalClients: clients.length,
+        totalClientsTrend: calculateTrend(clients.length, prevMonthClients),
         activeLicenses: activeLicenses,
+        activeLicensesTrend: calculateTrend(activeLicenses, prevMonthLicenses),
         monthlyRevenue: monthlyRevenue,
+        monthlyRevenueTrend: null, // This is projected revenue, not historical
         conversionRate: clients.length > 0 ? (activeLicenses / clients.length) * 100 : 0,
+        conversionRateTrend: null, // Conversion rate is a calculated metric
+        totalRevenue: currentMonthRevenue, // Current month revenue (aligned with trend period)
+        totalRevenueTrend: calculateTrend(currentMonthRevenue, prevMonthRevenue),
+        paidInvoicesCount: currentMonthPaidInvoices.length, // Current month count (aligned with trend period)
+        paidInvoicesTrend: calculateTrend(currentMonthPaidInvoices.length, prevMonthPaidInvoices.length),
+        pendingInvoicesCount: currentMonthPendingInvoices.length, // Current month count (aligned with trend period)
+        pendingInvoicesTrend: calculateTrend(currentMonthPendingInvoices.length, prevMonthPendingInvoices.length),
       };
 
       res.json(stats);
