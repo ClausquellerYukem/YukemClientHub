@@ -1172,8 +1172,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionUser = req.user as any;
       const userId = sessionUser.claims.sub;
+      const { masterPassword } = req.body;
       
       console.log('[POST /api/admin/initial-setup] Starting initial setup for userId:', userId);
+      
+      // Validate master password
+      const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "yukem2025admin";
+      
+      if (!masterPassword || masterPassword !== MASTER_PASSWORD) {
+        console.error('[POST /api/admin/initial-setup] Invalid master password attempt');
+        return res.status(403).json({ 
+          error: "Senha master inválida. Operação não autorizada." 
+        });
+      }
+      
+      console.log('[POST /api/admin/initial-setup] Master password validated');
       
       // Get all companies
       const allCompanies = await storage.getAllCompanies();

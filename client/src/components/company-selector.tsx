@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -10,12 +11,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Building2, Settings } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Building2, Settings, AlertTriangle } from "lucide-react";
 import type { Company } from "@shared/schema";
 
 export function CompanySelector() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [masterPassword, setMasterPassword] = useState("");
 
   const { data: companies, isLoading, error, dataUpdatedAt } = useQuery<Company[]>({
     queryKey: ["/api/user/companies"],
@@ -80,12 +95,14 @@ export function CompanySelector() {
   });
 
   const initialSetupMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/admin/initial-setup", {});
+    mutationFn: async (password: string) => {
+      return apiRequest("POST", "/api/admin/initial-setup", { masterPassword: password });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setShowSetupDialog(false);
+      setMasterPassword("");
       toast({
         title: "Configuração concluída!",
         description: data.message || `Você foi associado a ${data.totalCompanies} empresa(s)`,
@@ -97,8 +114,21 @@ export function CompanySelector() {
         description: error?.error || "Falha ao realizar configuração inicial",
         variant: "destructive",
       });
+      setMasterPassword("");
     },
   });
+
+  const handleSetupConfirm = () => {
+    if (!masterPassword.trim()) {
+      toast({
+        title: "Senha necessária",
+        description: "Digite a senha master para continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+    initialSetupMutation.mutate(masterPassword);
+  };
 
   const handleCompanyChange = (companyId: string) => {
     setActiveCompanyMutation.mutate(companyId);
@@ -130,22 +160,78 @@ export function CompanySelector() {
   if (!companies || companies.length === 0) {
     console.warn('[CompanySelector] No companies found for user');
     
-    // If user is admin, show setup button
+    // If user is admin, show setup button with confirmation dialog
     if (user?.role === 'admin') {
       return (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => initialSetupMutation.mutate()}
-          disabled={initialSetupMutation.isPending}
-          className="gap-2"
-          data-testid="button-initial-setup"
-        >
-          <Settings className="h-4 w-4" />
-          <span>
-            {initialSetupMutation.isPending ? "Configurando..." : "Configuração Inicial"}
-          </span>
-        </Button>
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSetupDialog(true)}
+            disabled={initialSetupMutation.isPending}
+            className="gap-2"
+            data-testid="button-initial-setup"
+          >
+            <Settings className="h-4 w-4" />
+            <span>
+              {initialSetupMutation.isPending ? "Configurando..." : "Configuração Inicial"}
+            </span>
+          </Button>
+
+          <AlertDialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Configuração Inicial
+                </AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>
+                    Esta operação irá associar seu usuário a <strong>todas as empresas</strong> cadastradas no sistema.
+                  </p>
+                  <p className="text-destructive font-medium">
+                    ⚠️ Esta é uma operação administrativa crítica!
+                  </p>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="master-password">Senha Master</Label>
+                    <Input
+                      id="master-password"
+                      type="password"
+                      placeholder="Digite a senha master"
+                      value={masterPassword}
+                      onChange={(e) => setMasterPassword(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSetupConfirm();
+                        }
+                      }}
+                      disabled={initialSetupMutation.isPending}
+                      data-testid="input-master-password"
+                    />
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel 
+                  onClick={() => {
+                    setMasterPassword("");
+                  }}
+                  disabled={initialSetupMutation.isPending}
+                >
+                  Cancelar
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleSetupConfirm}
+                  disabled={initialSetupMutation.isPending || !masterPassword.trim()}
+                  className="bg-destructive hover:bg-destructive/90"
+                  data-testid="button-confirm-setup"
+                >
+                  {initialSetupMutation.isPending ? "Processando..." : "Confirmar"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
       );
     }
     
