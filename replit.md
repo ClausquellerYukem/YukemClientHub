@@ -4,6 +4,18 @@
 
 Yukem is a white label client management platform designed for managing ERP clients. It provides a SaaS dashboard with tools for client, license, invoice management, and financial tracking. The platform aims to modernize client relationship management and financial operations for representatives, enabling efficient scaling and improved business intelligence.
 
+## Recent Changes (Nov 2025)
+
+**Dashboard Metrics Fix (Nov 6, 2025)**
+- Fixed misleading month-over-month comparisons that showed fake percentages when no historical data existed
+- All dashboard cards now use aligned time windows for value/trend comparisons:
+  - Revenue metrics compare current month vs previous month (not lifetime vs single month)
+  - Invoice counts compare monthly periods (not lifetime vs monthly)
+  - License counts use date-based calculations (activatedAt/expiresAt) for both current and historical periods
+  - Pending invoices correctly identify which invoices were pending at end of each month
+- Trends return `null` when previous period has zero data, preventing misleading percentages
+- Card labels updated to clarify monthly metrics: "Receita do Mês", "Faturas Pagas (Mês)", "Pendentes (Mês)"
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
