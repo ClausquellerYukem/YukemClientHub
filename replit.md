@@ -53,13 +53,28 @@ Yukem is a white label client management platform designed for managing ERP clie
   - **Security**: Requires MASTER_PASSWORD environment variable (mandatory, no default)
   - **Rate limiting**: 5 attempts per hour per user to prevent brute force
   - **Protection**: Validation errors don't reveal detailed information in production
-- Enhanced CompanySelector UI component:
-  - Shows "Configuração Inicial" button for admins when no companies are associated
+- **Deployment requirement**: MASTER_PASSWORD secret must be set before deploying to production
+
+**Admin Company Selector Enhancement (Nov 6, 2025)**
+- Modified GET /api/user/companies to return ALL companies for admin users:
+  - Detects admin role via getUserFromSession
+  - Admins receive storage.getAllCompanies() instead of associated companies only
+  - Non-admins continue to receive only their associated companies via getUserCompanies()
+  - Differentiated logging for admin vs non-admin access
+- Modified PATCH /api/user/active-company to allow admins to switch to any company:
+  - Admins can switch to any company in the system
+  - Non-admins restricted to their associated companies (validation enforced)
+- Simplified CompanySelector component:
+  - Removed "Configuração Inicial" button and dialog logic
+  - Focused solely on company selection functionality
+  - Cleaner, more maintainable code
+- Moved initial setup functionality to Profile page:
+  - "Configuração Inicial" button now appears only in Profile page
+  - Restricted to comtecnologia.erp@gmail.com email only
   - AlertDialog confirmation requires master password before execution
   - Clear error handling and user feedback via toast notifications
   - Loading state during setup process
-- **Use case**: In production, after creating companies, admin users can click the setup button, enter the master password in the confirmation dialog, and auto-associate themselves with all companies
-- **Deployment requirement**: MASTER_PASSWORD secret must be set before deploying to production
+- **Use case**: Admins see all companies in the selector and can switch freely. Initial setup for associating admin with all companies is accessed from Profile page by authorized user only.
 
 ## User Preferences
 
