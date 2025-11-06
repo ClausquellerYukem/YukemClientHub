@@ -501,6 +501,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companyId = await getCompanyIdForUser(req);
       const invoiceId = req.params.id;
       
+      if (!companyId) {
+        return res.status(400).json({ error: "Por favor, selecione uma empresa ativa" });
+      }
+      
       // Get the invoice to ensure it belongs to the user's company
       const invoice = await storage.getInvoice(invoiceId, companyId);
       if (!invoice) {
