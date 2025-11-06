@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema, insertCompanySchema, insertUserCompanySchema } from "@shared/schema";
 import { z } from "zod";
-import { setupAuth, isAuthenticated, isAdmin, requirePermission } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, requirePermission, getUserFromSession } from "./replitAuth";
 
 // Helper function to get companyId for multi-tenant data isolation
 // Returns activeCompanyId if user has one set (for both admins and regular users)
@@ -1094,9 +1094,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "User ID not found in session" });
       }
       
-      console.log('[GET /api/user/companies] Fetching companies for userId:', userId);
+      // Get user to check if admin
+      const user = await getUserFromSession(sessionUser);
       
-      const companies = await storage.getUserCompanies(userId);
+      let companies;
+      
+      // ADMINS: Load all companies in the system
+      if (user?.role === 'admin') {
+        console.log('[GET /api/user/companies] User is admin - loading ALL companies');
+        companies = await storage.getAllCompanies();
+      } else {
+        // NON-ADMINS: Load only associated companies
+        console.log('[GET /api/user/companies] User is not admin - loading associated companies only');
+        companies = await storage.getUserCompanies(userId);
+      }
       
       console.log('[GET /api/user/companies] Found', companies.length, 'companies:', companies.map(c => ({ id: c.id, name: c.name })));
       console.log('[GET /api/user/companies] === REQUEST END ===');
@@ -1120,12 +1131,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "companyId is required" });
       }
       
-      // SECURITY: Verify user has access to this company before setting as active
-      const userCompanies = await storage.getUserCompanies(userId);
-      const hasAccess = userCompanies.some(c => c.id === companyId);
+      // Get user to check if admin
+      const currentUser = await getUserFromSession(sessionUser);
       
-      if (!hasAccess) {
-        return res.status(403).json({ error: "User does not have access to this company" });
+      // SECURITY: Verify user has access to this company before setting as active
+      // Admins can switch to any company, non-admins only to associated companies
+      if (currentUser?.role !== 'admin') {
+        const userCompanies = await storage.getUserCompanies(userId);
+        const hasAccess = userCompanies.some(c => c.id === companyId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ error: "User does not have access to this company" });
+        }
       }
 
       const user = await storage.setActiveCompany(userId, companyId);

@@ -63,7 +63,7 @@ function updateUserSession(
 
 // Helper function to get user from session with fallback strategy
 // Prevents issues where OAuth ID differs from database ID
-async function getUserFromSession(sessionUser: any) {
+export async function getUserFromSession(sessionUser: any) {
   const { storage } = await import("./storage");
   
   // 1. Try dbUserId from session (most reliable for existing users)

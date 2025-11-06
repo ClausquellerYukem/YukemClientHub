@@ -1,15 +1,67 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LogOut, Mail, User as UserIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LogOut, Mail, User as UserIcon, Settings, AlertTriangle } from "lucide-react";
 
 export default function Profile() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [masterPassword, setMasterPassword] = useState("");
+
+  const initialSetupMutation = useMutation({
+    mutationFn: async (password: string) => {
+      return apiRequest("POST", "/api/admin/initial-setup", { masterPassword: password });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setShowSetupDialog(false);
+      setMasterPassword("");
+      toast({
+        title: "Configuração concluída!",
+        description: data.message || `Você foi associado a ${data.totalCompanies} empresa(s)`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro na configuração",
+        description: error?.error || "Falha ao realizar configuração inicial",
+        variant: "destructive",
+      });
+      setMasterPassword("");
+    },
+  });
+
+  const handleSetupConfirm = () => {
+    if (!masterPassword.trim()) {
+      toast({
+        title: "Senha necessária",
+        description: "Digite a senha master para continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+    initialSetupMutation.mutate(masterPassword);
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -130,6 +182,88 @@ export default function Profile() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Configuração Inicial - Só para comtecnologia.erp@gmail.com */}
+      {user?.email === 'comtecnologia.erp@gmail.com' && (
+        <>
+          <Card data-testid="card-initial-setup">
+            <CardHeader>
+              <CardTitle>Configuração Inicial</CardTitle>
+              <CardDescription>
+                Operação administrativa para associar usuário a todas as empresas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline"
+                onClick={() => setShowSetupDialog(true)}
+                disabled={initialSetupMutation.isPending}
+                className="gap-2"
+                data-testid="button-initial-setup"
+              >
+                <Settings className="h-4 w-4" />
+                <span>
+                  {initialSetupMutation.isPending ? "Configurando..." : "Configuração Inicial"}
+                </span>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <AlertDialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Configuração Inicial
+                </AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>
+                    Esta operação irá associar seu usuário a <strong>todas as empresas</strong> cadastradas no sistema.
+                  </p>
+                  <p className="text-destructive font-medium">
+                    ⚠️ Esta é uma operação administrativa crítica!
+                  </p>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="master-password">Senha Master</Label>
+                    <Input
+                      id="master-password"
+                      type="password"
+                      placeholder="Digite a senha master"
+                      value={masterPassword}
+                      onChange={(e) => setMasterPassword(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSetupConfirm();
+                        }
+                      }}
+                      disabled={initialSetupMutation.isPending}
+                      data-testid="input-master-password"
+                    />
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel 
+                  onClick={() => {
+                    setMasterPassword("");
+                  }}
+                  disabled={initialSetupMutation.isPending}
+                >
+                  Cancelar
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleSetupConfirm}
+                  disabled={initialSetupMutation.isPending || !masterPassword.trim()}
+                  className="bg-destructive hover:bg-destructive/90"
+                  data-testid="button-confirm-setup"
+                >
+                  {initialSetupMutation.isPending ? "Processando..." : "Confirmar"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
     </div>
   );
 }
