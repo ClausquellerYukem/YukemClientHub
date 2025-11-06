@@ -12,9 +12,13 @@ export function useAuth() {
     refetchOnMount: true, // Always refetch on mount to get fresh auth state
     // Custom queryFn that returns null on 401 instead of throwing
     queryFn: async () => {
+      console.log('[useAuth] Fetching /api/auth/user...');
+      
       const res = await fetch("/api/auth/user", {
         credentials: "include",
       });
+
+      console.log('[useAuth] Response status:', res.status);
 
       // If 401, user is not authenticated - return null
       if (res.status === 401) {
@@ -30,7 +34,7 @@ export function useAuth() {
       }
 
       const userData = await res.json();
-      console.log('[useAuth] Got user data:', userData?.email);
+      console.log('[useAuth] Got user data:', userData?.email, 'Full data:', userData);
       return userData;
     },
   });
