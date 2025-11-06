@@ -41,7 +41,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      sameSite: 'lax', // Use 'lax' for better compatibility with OAuth redirects
       maxAge: sessionTtl,
     },
   });
@@ -120,10 +120,28 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
+    console.log('[OAuth Callback] Received callback request');
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
+      if (err) {
+        console.error('[OAuth Callback] Error during authentication:', err);
+        return res.redirect('/api/login');
+      }
+      
+      if (!user) {
+        console.error('[OAuth Callback] No user returned, info:', info);
+        return res.redirect('/api/login');
+      }
+      
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error('[OAuth Callback] Error during login:', loginErr);
+          return res.redirect('/api/login');
+        }
+        
+        console.log('[OAuth Callback] Login successful, session saved, redirecting to /');
+        return res.redirect('/');
+      });
     })(req, res, next);
   });
 
