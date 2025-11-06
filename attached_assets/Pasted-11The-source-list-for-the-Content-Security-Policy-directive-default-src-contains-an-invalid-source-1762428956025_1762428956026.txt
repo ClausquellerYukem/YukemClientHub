@@ -1,0 +1,54 @@
+11The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+11The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+11The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ZRap0a9qVCWnXL_O6rXt8:114 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-UWe+TMDYPCsS0QJELZ7mZe1F64DqZ1KkoI40OMs+auk='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+ZRap0a9qVCWnXL_O6rXt8:144 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-Q2BC+6wvEMMGAG5ptiy0mdlUVz5ymLU+2wnaD11rhyc='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+ZRap0a9qVCWnXL_O6rXt8:147 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-XYvVliZ7kJ9JIDhACMzGUvidf8E8T+euknSiwFmyDfg='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+ZRap0a9qVCWnXL_O6rXt8:147 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-a0FG1gznKV6xJVtSmuR+jVAfQgpJVcXOVGkkxNfRkIs='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+ZRap0a9qVCWnXL_O6rXt8:147 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-/jHy94eyFL8dTfREdmM+mpzO07r+XDqQPgiy6bP0ZUU='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+ZRap0a9qVCWnXL_O6rXt8:147 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-07l5B4sWF6cor6yDQ+CQBYw+BXfYaB+C6wxFZmj0wqo='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+118Loading the script '<URL>' violates the following Content Security Policy directive: "script-src 'none'". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+ZRap0a9qVCWnXL_O6rXt8:150 Executing inline script violates the following Content Security Policy directive 'script-src 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-AQueeHl2N8bLd4p6xnNE6DshmhLYMb+Bl9ut5mkadvY='), or a nonce ('nonce-...') is required to enable inline execution. The policy is report-only, so the violation has been logged but no further action has been taken.
+ca4147a3ad6aee61.js:2 Creating a worker from 'https://replit.com/public/stallwart.build.js' violates the following Content Security Policy directive: "script-src 'none'". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ZRap0a9qVCWnXL_O6rXt8:1  The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+ZRap0a9qVCWnXL_O6rXt8:1  The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+ZRap0a9qVCWnXL_O6rXt8:1  The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ca4147a3ad6aee61.js:2 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+ca4147a3ad6aee61.js:2 Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+ca4147a3ad6aee61.js:2 [LaunchDarkly] LaunchDarkly client initialized
+74Tracking Prevention blocked access to storage for <URL>.
+fc65ec85f4f7b441.js:2 Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'none'".
+ The policy is report-only, so the violation has been logged but no further action has been taken.
+fc65ec85f4f7b441.js:2 Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'none'".
+ The policy is report-only, so the violation has been logged but no further action has been taken.
+75c7b43d8c21bded.js:2 Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'none'".
+ The policy is report-only, so the violation has been logged but no further action has been taken.
+2fbf716ae3c453cc.js:2  Uncaught (in promise) TypeError: i.enterprise.execute is not a function
+    at 2fbf716ae3c453cc.js:2:88320
+(anônimo) @ 2fbf716ae3c453cc.js:2
+Promise.then
+(anônimo) @ recaptcha__pt_br.js:721
+DO.<computed>.<computed>.<computed>.DO.<computed>.<computed>.<computed> @ recaptcha__pt_br.js:600
+(anônimo) @ recaptcha__pt_br.js:601
+(anônimo) @ recaptcha__pt_br.js:166
+(anônimo) @ recaptcha__pt_br.js:601
+(anônimo) @ recaptcha__pt_br.js:1559
+(anônimo) @ recaptcha__pt_br.js:1572
+ca4147a3ad6aee61.js:2 Creating a worker from 'https://replit.com/service-worker.js' violates the following Content Security Policy directive: "script-src 'none'". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
