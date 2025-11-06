@@ -50,12 +50,16 @@ Yukem is a white label client management platform designed for managing ERP clie
   - Idempotent operation: safely handles already-associated companies
   - Sets first company as active if user has no active company
   - Returns detailed results including company names and association counts
+  - **Security**: Requires MASTER_PASSWORD environment variable (mandatory, no default)
+  - **Rate limiting**: 5 attempts per hour per user to prevent brute force
+  - **Protection**: Validation errors don't reveal detailed information in production
 - Enhanced CompanySelector UI component:
   - Shows "Configuração Inicial" button for admins when no companies are associated
-  - Button triggers automatic association with all companies in one click
-  - Provides user feedback via toast notifications
+  - AlertDialog confirmation requires master password before execution
+  - Clear error handling and user feedback via toast notifications
   - Loading state during setup process
-- **Use case**: In production, after creating companies, admin users can click the setup button once to auto-associate themselves with all companies instead of manually configuring associations
+- **Use case**: In production, after creating companies, admin users can click the setup button, enter the master password in the confirmation dialog, and auto-associate themselves with all companies
+- **Deployment requirement**: MASTER_PASSWORD secret must be set before deploying to production
 
 ## User Preferences
 

@@ -1167,6 +1167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rate limiting for initial setup endpoint
+  const initialSetupAttempts = new Map<string, { count: number; resetAt: number }>();
+  
   // ADMIN: Initial setup endpoint - Associates current admin user with all existing companies
   app.post("/api/admin/initial-setup", isAuthenticated, isAdmin, async (req, res) => {
     try {
@@ -1174,19 +1177,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = sessionUser.claims.sub;
       const { masterPassword } = req.body;
       
-      console.log('[POST /api/admin/initial-setup] Starting initial setup for userId:', userId);
+      // Rate limiting: 5 attempts per hour per user
+      const now = Date.now();
+      const userAttempts = initialSetupAttempts.get(userId);
       
-      // Validate master password
-      const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "yukem2025admin";
+      if (userAttempts) {
+        if (now < userAttempts.resetAt) {
+          if (userAttempts.count >= 5) {
+            return res.status(429).json({ 
+              error: "Muitas tentativas. Tente novamente mais tarde." 
+            });
+          }
+          userAttempts.count++;
+        } else {
+          initialSetupAttempts.set(userId, { count: 1, resetAt: now + 3600000 });
+        }
+      } else {
+        initialSetupAttempts.set(userId, { count: 1, resetAt: now + 3600000 });
+      }
       
-      if (!masterPassword || masterPassword !== MASTER_PASSWORD) {
-        console.error('[POST /api/admin/initial-setup] Invalid master password attempt');
-        return res.status(403).json({ 
-          error: "Senha master inválida. Operação não autorizada." 
+      // Validate master password exists
+      const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
+      
+      if (!MASTER_PASSWORD) {
+        console.error('[POST /api/admin/initial-setup] MASTER_PASSWORD not configured');
+        return res.status(503).json({ 
+          error: "Configuração de segurança não encontrada. Entre em contato com o suporte." 
         });
       }
       
-      console.log('[POST /api/admin/initial-setup] Master password validated');
+      if (!masterPassword || masterPassword !== MASTER_PASSWORD) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[POST /api/admin/initial-setup] Invalid password attempt for userId:', userId);
+        }
+        return res.status(403).json({ 
+          error: "Senha master inválida." 
+        });
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[POST /api/admin/initial-setup] Starting initial setup for userId:', userId);
+      }
       
       // Get all companies
       const allCompanies = await storage.getAllCompanies();
