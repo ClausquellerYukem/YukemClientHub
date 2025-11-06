@@ -2,8 +2,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { StatCard } from "@/components/stat-card";
 import { RevenueChart } from "@/components/revenue-chart";
-import { Users, Key, CreditCard, TrendingUp } from "lucide-react";
+import { Users, Key, CreditCard, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import type { Invoice } from "@shared/schema";
 
 interface DashboardStats {
   totalClients: number;
@@ -26,6 +27,10 @@ export default function Dashboard() {
     queryKey: ["/api/stats/monthly-revenue"],
   });
 
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<Invoice[]>({
+    queryKey: ["/api/invoices"],
+  });
+
   // Automatic license blocking - Check overdue invoices on dashboard load
   const checkOverdueMutation = useMutation({
     mutationFn: async () => {
@@ -44,13 +49,18 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (isLoading || !stats || isLoadingRevenue) {
+  if (isLoading || !stats || isLoadingRevenue || isLoadingInvoices) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Carregando dashboard...</p>
       </div>
     );
   }
+
+  // Financial stats
+  const paidInvoices = invoices.filter(i => i.status === "paid");
+  const pendingInvoices = invoices.filter(i => i.status === "pending");
+  const totalRevenue = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
   const statsCards = [
     {
@@ -80,6 +90,27 @@ export default function Dashboard() {
       icon: TrendingUp,
       trend: { value: "2.4%", isPositive: true },
       testId: "stat-conversion-rate",
+    },
+    {
+      title: "Receita Total",
+      value: `R$ ${(totalRevenue / 1000).toFixed(1)}K`,
+      icon: DollarSign,
+      trend: { value: "23%", isPositive: true },
+      testId: "stat-total-revenue",
+    },
+    {
+      title: "Faturas Pagas",
+      value: paidInvoices.length.toString(),
+      icon: TrendingUp,
+      trend: { value: "15%", isPositive: true },
+      testId: "stat-paid-invoices",
+    },
+    {
+      title: "Pendentes",
+      value: pendingInvoices.length.toString(),
+      icon: AlertCircle,
+      trend: { value: "5%", isPositive: false },
+      testId: "stat-pending-invoices",
     },
   ];
 
