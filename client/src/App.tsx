@@ -65,8 +65,11 @@ export default function App() {
 function AuthLayout({ style }: { style: Record<string, string> }) {
   const { isAuthenticated, isLoading } = useAuth();
 
+  console.log('[AuthLayout] Rendering - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
+
   // Show loading state while checking authentication
   if (isLoading) {
+    console.log('[AuthLayout] Showing loading skeleton');
     return (
       <div className="flex items-center justify-center h-screen w-full">
         <div className="space-y-4 w-full max-w-md p-8">
@@ -80,10 +83,12 @@ function AuthLayout({ style }: { style: Record<string, string> }) {
 
   // Show landing page for non-authenticated users (no sidebar)
   if (!isAuthenticated) {
+    console.log('[AuthLayout] User NOT authenticated - showing Landing page');
     return <Router isAuthenticated={false} />;
   }
 
   // Show app with sidebar for authenticated users
+  console.log('[AuthLayout] User authenticated - showing Dashboard');
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
