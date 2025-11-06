@@ -88,6 +88,7 @@ export interface IStorage {
   // Permission operations
   getPermissionsByRole(roleId: string): Promise<RolePermission[]>;
   getAllPermissions(): Promise<RolePermission[]>;
+  createRolePermission(permission: InsertRolePermission): Promise<RolePermission>;
   updateRolePermission(id: string, updates: Partial<InsertRolePermission>): Promise<RolePermission | undefined>;
   getUserPermissions(userId: string): Promise<Map<Resource, Set<Action>>>;
   checkUserPermission(userId: string, resource: Resource, action: Action): Promise<boolean>;
@@ -548,6 +549,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllPermissions(): Promise<RolePermission[]> {
     return await db.select().from(rolePermissions);
+  }
+
+  async createRolePermission(insertPermission: InsertRolePermission): Promise<RolePermission> {
+    const [permission] = await db.insert(rolePermissions).values(insertPermission).returning();
+    return permission;
   }
 
   async updateRolePermission(id: string, updates: Partial<InsertRolePermission>): Promise<RolePermission | undefined> {

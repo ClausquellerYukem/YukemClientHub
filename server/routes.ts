@@ -52,6 +52,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
   await setupAuth(app);
 
+  // Initialize roles and permissions if they don't exist
+  const { seedRolesAndPermissions } = await import("./seed-data");
+  await seedRolesAndPermissions();
+
   // Auth route to get current user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

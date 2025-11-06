@@ -1,5 +1,67 @@
 import { storage } from "./storage";
 
+export async function seedRolesAndPermissions() {
+  console.log("Initializing roles and permissions...");
+
+  const existingRoles = await storage.getAllRoles();
+  
+  if (existingRoles.length > 0) {
+    console.log("Roles already exist, skipping role initialization");
+    return;
+  }
+
+  const resources = ["clients", "licenses", "invoices", "boleto_config"];
+
+  const adminRole = await storage.createRole({
+    name: "Administrador",
+    description: "Acesso total ao sistema",
+    isSystem: true,
+  });
+
+  const managerRole = await storage.createRole({
+    name: "Gerente",
+    description: "Gerenciamento de clientes e licenças",
+    isSystem: false,
+  });
+
+  const userRole = await storage.createRole({
+    name: "Usuário",
+    description: "Visualização de dados",
+    isSystem: false,
+  });
+
+  for (const resource of resources) {
+    await storage.createRolePermission({
+      roleId: adminRole.id,
+      resource,
+      canCreate: true,
+      canRead: true,
+      canUpdate: true,
+      canDelete: true,
+    });
+
+    await storage.createRolePermission({
+      roleId: managerRole.id,
+      resource,
+      canCreate: true,
+      canRead: true,
+      canUpdate: true,
+      canDelete: false,
+    });
+
+    await storage.createRolePermission({
+      roleId: userRole.id,
+      resource,
+      canCreate: false,
+      canRead: true,
+      canUpdate: false,
+      canDelete: false,
+    });
+  }
+
+  console.log("Roles and permissions initialized successfully!");
+}
+
 export async function seedInitialData() {
   const existingClients = await storage.getAllClients();
   
