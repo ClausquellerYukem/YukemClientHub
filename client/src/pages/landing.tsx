@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Building2, Shield, TrendingUp, Users } from "lucide-react";
+import yukemLogo from "@assets/yukem completa sem fundo_1762452903411.png";
 
 export default function Landing() {
   return (
@@ -11,10 +12,12 @@ export default function Landing() {
         <div className="relative">
           <header className="border-b">
             <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-8 w-8 text-primary" />
-                <span className="text-xl font-semibold">Yukem ERP</span>
-              </div>
+              <img 
+                src={yukemLogo} 
+                alt="Yukem" 
+                className="h-10 w-auto"
+                data-testid="img-logo-header"
+              />
               <Button asChild data-testid="button-login">
                 <a href="/api/login">Login</a>
               </Button>

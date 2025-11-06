@@ -13,6 +13,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import yukemLogo from "@assets/yukem completa sem fundo_1762452903411.png";
 
 const menuItems = [
   {
@@ -68,14 +69,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
-            Y
-          </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">Yukem</span>
-            <span className="text-xs text-muted-foreground">White Label</span>
-          </div>
+        <div className="flex items-center justify-center">
+          <img 
+            src={yukemLogo} 
+            alt="Yukem" 
+            className="h-12 w-auto"
+            data-testid="img-logo-sidebar"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>
