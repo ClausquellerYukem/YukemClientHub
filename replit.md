@@ -39,6 +39,24 @@ Yukem is a white label client management platform designed for managing ERP clie
 - Trends return `null` when previous period has zero data, preventing misleading percentages
 - Card labels updated to clarify monthly metrics: "Receita do Mês", "Faturas Pagas (Mês)", "Pendentes (Mês)"
 
+**Production Database Setup & Diagnostics (Nov 6, 2025)**
+- Added comprehensive diagnostic logging to track user-company association issues
+- Enhanced server-side logging in:
+  - POST /api/admin/initial-setup endpoint with step-by-step association tracking
+  - GET /api/user/companies endpoint to log userId and found companies
+  - getUserCompanies storage method to trace database queries and results
+- Created admin-only initial setup endpoint (POST /api/admin/initial-setup) that:
+  - Associates current admin user with all existing companies in the database
+  - Idempotent operation: safely handles already-associated companies
+  - Sets first company as active if user has no active company
+  - Returns detailed results including company names and association counts
+- Enhanced CompanySelector UI component:
+  - Shows "Configuração Inicial" button for admins when no companies are associated
+  - Button triggers automatic association with all companies in one click
+  - Provides user feedback via toast notifications
+  - Loading state during setup process
+- **Use case**: In production, after creating companies, admin users can click the setup button once to auto-associate themselves with all companies instead of manually configuring associations
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
