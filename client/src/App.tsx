@@ -20,6 +20,7 @@ import NotFound from "@/pages/not-found";
 import Users from "@/pages/users";
 import PermissoesPage from "@/pages/admin/permissoes";
 import EmpresasPage from "@/pages/admin/empresas";
+import FixUser from "@/pages/fix-user";
 
 // Router with authentication - Reference: blueprint:javascript_log_in_with_replit
 function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -38,6 +39,7 @@ function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
           <Route path="/admin/usuarios" component={Users} />
           <Route path="/admin/permissoes" component={PermissoesPage} />
           <Route path="/admin/empresas" component={EmpresasPage} />
+          <Route path="/fix-user" component={FixUser} />
         </>
       )}
       <Route component={NotFound} />

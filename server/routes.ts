@@ -936,6 +936,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // TEMPORARY: User data fix endpoint (only accessible when authenticated)
+  app.post("/api/admin/fix-user-data", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.dbUserId || req.user.claims.sub;
+      const { action, companyId } = req.body;
+      
+      console.log('[fix-user-data] User:', userId, 'Action:', action, 'CompanyId:', companyId);
+      
+      if (action === 'make-admin') {
+        // Get user by ID first
+        let user = await storage.getUser(userId);
+        
+        // Fallback to email if not found
+        if (!user && req.user.claims?.email) {
+          user = await storage.getUserByEmail(req.user.claims.email);
+        }
+        
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        // Update user to admin
+        await storage.updateUser(user.id, { role: 'admin' });
+        console.log('[fix-user-data] User promoted to admin:', user.email);
+        
+        return res.json({ success: true, message: "User promoted to admin" });
+      }
+      
+      if (action === 'assign-company') {
+        let user = await storage.getUser(userId);
+        if (!user && req.user.claims?.email) {
+          user = await storage.getUserByEmail(req.user.claims.email);
+        }
+        
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        if (!companyId) {
+          return res.status(400).json({ error: "Company ID is required" });
+        }
+        
+        // Assign user to company
+        await storage.assignUserToCompany({ userId: user.id, companyId });
+        console.log('[fix-user-data] User assigned to company:', user.email, companyId);
+        
+        return res.json({ success: true, message: "User assigned to company" });
+      }
+      
+      if (action === 'set-active-company') {
+        let user = await storage.getUser(userId);
+        if (!user && req.user.claims?.email) {
+          user = await storage.getUserByEmail(req.user.claims.email);
+        }
+        
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        if (!companyId) {
+          return res.status(400).json({ error: "Company ID is required" });
+        }
+        
+        // Set active company
+        await storage.setActiveCompany(user.id, companyId);
+        console.log('[fix-user-data] Active company set:', user.email, companyId);
+        
+        return res.json({ success: true, message: "Active company set" });
+      }
+      
+      return res.status(400).json({ error: "Invalid action" });
+    } catch (error: any) {
+      console.error("[fix-user-data] Error:", error);
+      
+      // Handle duplicate assignment
+      if (error.code === '23505' && error.constraint === 'user_companies_user_id_company_id_unique') {
+        return res.status(409).json({ error: "User already assigned to this company" });
+      }
+      
+      res.status(500).json({ error: error.message || "Failed to fix user data" });
+    }
+  });
+
+  // TEMPORARY: Get all companies (no permission required, only authentication)
+  app.get("/api/admin/all-companies", isAuthenticated, async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      res.json(companies);
+    } catch (error) {
+      console.error("Error fetching all companies:", error);
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
