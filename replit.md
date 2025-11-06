@@ -6,7 +6,10 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
-**Logo Branding Update (Nov 6, 2025)**
+**Favicon and Logo Update (Nov 6, 2025)**
+- Added custom favicon.ico to application
+  - Favicon file placed in client/public/favicon.ico
+  - HTML updated to reference /favicon.ico with proper MIME type
 - Replaced placeholder "Yukem White Label" text branding with official Yukem logo
 - Logo now appears in:
   - Sidebar header (centered, h-12)
