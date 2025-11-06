@@ -17,19 +17,41 @@ export function CompanySelector() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const { data: companies, isLoading, error } = useQuery<Company[]>({
+  const { data: companies, isLoading, error, dataUpdatedAt } = useQuery<Company[]>({
     queryKey: ["/api/user/companies"],
+    retry: 1,
   });
 
-  // Debug logging
+  // Debug logging with full details
   console.log('[CompanySelector] State:', {
     isLoading,
     hasCompanies: !!companies,
     companiesCount: companies?.length || 0,
     companies,
     activeCompanyId: user?.activeCompanyId,
-    error
+    userId: user?.id,
+    userEmail: user?.email,
+    error,
+    errorDetails: error ? JSON.stringify(error) : null,
+    dataUpdatedAt: new Date(dataUpdatedAt).toISOString(),
+    timestamp: new Date().toISOString()
   });
+
+  // Additional logging when companies changes
+  if (companies !== undefined) {
+    console.log('[CompanySelector] Companies data received:', {
+      isArray: Array.isArray(companies),
+      length: companies?.length,
+      data: companies
+    });
+  }
+
+  // Log errors in detail
+  if (error) {
+    console.error('[CompanySelector] Error fetching companies:', error);
+    console.error('[CompanySelector] Error type:', typeof error);
+    console.error('[CompanySelector] Error keys:', error ? Object.keys(error) : 'null');
+  }
 
   const setActiveCompanyMutation = useMutation({
     mutationFn: async (companyId: string) => {

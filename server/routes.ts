@@ -1077,13 +1077,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user/companies", isAuthenticated, async (req, res) => {
     try {
       const sessionUser = req.user as any;
+      
+      // Enhanced logging for debugging production issues
+      console.log('[GET /api/user/companies] === REQUEST START ===');
+      console.log('[GET /api/user/companies] Session user:', {
+        hasClaims: !!sessionUser?.claims,
+        sub: sessionUser?.claims?.sub,
+        email: sessionUser?.claims?.email,
+        fullUser: sessionUser
+      });
+      
       const userId = sessionUser.claims.sub;
+      
+      if (!userId) {
+        console.error('[GET /api/user/companies] ERROR: No userId found in session');
+        return res.status(400).json({ error: "User ID not found in session" });
+      }
+      
       console.log('[GET /api/user/companies] Fetching companies for userId:', userId);
+      
       const companies = await storage.getUserCompanies(userId);
+      
       console.log('[GET /api/user/companies] Found', companies.length, 'companies:', companies.map(c => ({ id: c.id, name: c.name })));
+      console.log('[GET /api/user/companies] === REQUEST END ===');
+      
       res.json(companies);
     } catch (error) {
+      console.error("[GET /api/user/companies] === ERROR ===");
       console.error("[GET /api/user/companies] Error fetching user companies:", error);
+      console.error("[GET /api/user/companies] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({ error: "Failed to fetch user companies" });
     }
   });
