@@ -6,6 +6,15 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
+**Logo Branding Update (Nov 6, 2025)**
+- Replaced placeholder "Yukem White Label" text branding with official Yukem logo
+- Logo now appears in:
+  - Sidebar header (centered, h-12)
+  - Landing page header (h-10)
+- Logo imported from: attached_assets/yukem completa sem fundo_1762452903411.png
+- Uses @assets/ alias for proper Vite bundling
+- Maintains aspect ratio with w-auto for responsiveness
+
 **Boleto API Integration (Nov 6, 2025)**
 - Integrated external boleto generation API (api.yukem.com.br/v1/geraboletoapi)
 - Added boleto data fields to invoices table: ParcelaId, qrcodeId, qrcode, qrcodeBase64, url, generatedAt
