@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { StatCard } from "@/components/stat-card";
 import { RevenueChart } from "@/components/revenue-chart";
-import { Users, Key, CreditCard, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
+import { Users, Key, CreditCard, TrendingUp, DollarSign, AlertCircle, Wallet } from "lucide-react";
 
 interface DashboardStats {
   totalClients: number;
@@ -26,6 +26,13 @@ interface MonthlyRevenue {
   revenue: number;
 }
 
+interface RepasseStats {
+  totalRepasse: number;
+  companyValue: number;
+  excessLicenseRevenue: number;
+  description: string;
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats/dashboard"],
@@ -33,6 +40,10 @@ export default function Dashboard() {
 
   const { data: revenueData = [], isLoading: isLoadingRevenue, isError: isErrorRevenue } = useQuery<MonthlyRevenue[]>({
     queryKey: ["/api/stats/monthly-revenue"],
+  });
+
+  const { data: repasseStats, isLoading: isLoadingRepasse } = useQuery<RepasseStats>({
+    queryKey: ["/api/stats/repasse"],
   });
 
   // Automatic license blocking - Check overdue invoices on dashboard load
@@ -53,7 +64,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (isLoading || !stats || isLoadingRevenue) {
+  if (isLoading || !stats || isLoadingRevenue || isLoadingRepasse) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Carregando dashboard...</p>
@@ -82,6 +93,14 @@ export default function Dashboard() {
       icon: CreditCard,
       trend: stats.monthlyRevenueTrend,
       testId: "stat-monthly-revenue",
+    },
+    {
+      title: "Repasse Total",
+      value: `R$ ${((repasseStats?.totalRepasse || 0) / 1000).toFixed(1)}K`,
+      icon: Wallet,
+      trend: null,
+      description: repasseStats?.description || "Valor da empresa + licenças excedentes",
+      testId: "stat-total-repasse",
     },
     {
       title: "Taxa de Conversão",

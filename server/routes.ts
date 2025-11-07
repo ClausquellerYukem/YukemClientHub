@@ -1006,6 +1006,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Repasse Total - Company value + excess license revenue
+  app.get("/api/stats/repasse", isAuthenticated, async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      
+      // Return empty metrics for users without company
+      if (companyId === null) {
+        return res.json({
+          totalRepasse: 0,
+          companyValue: 0,
+          excessLicenseRevenue: 0,
+          description: "Valor da empresa + licenças excedentes",
+        });
+      }
+      
+      const company = await storage.getCompany(companyId);
+      const clients = await storage.getAllClients(companyId);
+      const licenses = await storage.getAllLicenses(companyId);
+      
+      // Get company monthly value (safely parsed)
+      const companyValue = company?.monthlyValue 
+        ? parseFloat(company.monthlyValue) 
+        : 0;
+      
+      // Calculate excess license revenue
+      let excessLicenseRevenue = 0;
+      
+      if (company) {
+        const freeLicenseQuota = company.freeLicenseQuota 
+          ? parseFloat(company.freeLicenseQuota) 
+          : 0;
+        const revenueSharePercentage = company.revenueSharePercentage 
+          ? parseFloat(company.revenueSharePercentage) 
+          : 0;
+        
+        if (revenueSharePercentage > 0) {
+          // Group licenses by client
+          const licensesByClient = new Map<string, number>();
+          licenses.filter(l => l.isActive).forEach(license => {
+            const count = licensesByClient.get(license.clientId) || 0;
+            licensesByClient.set(license.clientId, count + 1);
+          });
+          
+          // Calculate revenue for each client
+          licensesByClient.forEach((licensesCount, clientId) => {
+            const client = clients.find(c => c.id === clientId);
+            if (client && client.monthlyValue) {
+              const clientMonthlyValue = parseFloat(client.monthlyValue);
+              
+              if (!isNaN(clientMonthlyValue) && clientMonthlyValue > 0) {
+                // Calculate paid licenses (licenses above free quota)
+                const paidLicenses = Math.max(0, licensesCount - freeLicenseQuota);
+                
+                // Revenue = paid licenses × client monthly value × revenue share percentage
+                const clientRevenue = paidLicenses * clientMonthlyValue * (revenueSharePercentage / 100);
+                excessLicenseRevenue += clientRevenue;
+              }
+            }
+          });
+        }
+      }
+      
+      const totalRepasse = companyValue + excessLicenseRevenue;
+      
+      res.json({
+        totalRepasse,
+        companyValue,
+        excessLicenseRevenue,
+        description: `R$ ${(companyValue / 1000).toFixed(1)}K da empresa + R$ ${(excessLicenseRevenue / 1000).toFixed(1)}K de licenças`,
+      });
+    } catch (error) {
+      console.error("Error fetching repasse stats:", error);
+      res.status(500).json({ error: "Failed to fetch repasse stats" });
+    }
+  });
+
   // Financial Stats - Real data with trends
   app.get("/api/stats/financial", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
