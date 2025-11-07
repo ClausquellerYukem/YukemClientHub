@@ -6,6 +6,16 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
+**Repasse Total Card - Full Value Display (Nov 7, 2025)**
+- Changed "Repasse Total" card formatting from abbreviated to full currency values
+- **Format change**: "R$ 0.6K" → "R$ 599,00" (Brazilian Portuguese format)
+- **Description change**: "R$ 0.6K da empresa + R$ 0.0K de licenças" → "R$ 599,00 da empresa + R$ 0,00 de licenças"
+- **Implementation**: Uses `toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })`
+- **Consistency**: Backend description and frontend value both use same pt-BR formatting
+- **Empty state**: Shows "R$ 0,00" with description "R$ 0,00 da empresa + R$ 0,00 de licenças"
+- **Testing**: End-to-end tests confirm full values display with proper Brazilian formatting
+- **Note**: Other revenue cards ("Receita Mensal", "Receita do Mês") still use abbreviated "K" format
+
 **Repasse Total Dashboard Card (Nov 7, 2025)**
 - Added "Repasse Total" card to dashboard showing total revenue transfer calculation
 - **Calculation**: Total Repasse = Company Monthly Value + Excess License Revenue
@@ -18,8 +28,6 @@ Yukem is a white label client management platform designed for managing ERP clie
   - Empty state returns zeros when no active company
 - **Frontend**: New dashboard card positioned after "Receita Mensal"
   - Icon: Wallet (lucide-react)
-  - Format: R$ X.XK (currency in thousands)
-  - Description shows breakdown: "R$ X.XK da empresa + R$ X.XK de licenças"
   - No trend displayed (static metric)
 - **Testing**: End-to-end tests confirm card renders correctly with proper formatting
 
