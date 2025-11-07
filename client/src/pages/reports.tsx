@@ -97,7 +97,7 @@ export default function Reports() {
       setReportResult(data);
       toast({
         title: "Relatório executado",
-        description: `${data.rowCount} registro(s) encontrado(s)`,
+        description: `${data.rowCount ?? 0} registro(s) encontrado(s)`,
       });
     },
     onError: (error: any) => {
@@ -128,7 +128,7 @@ export default function Reports() {
       setReportResult(data);
       toast({
         title: "Consulta executada",
-        description: `${data.rowCount} registro(s) encontrado(s)`,
+        description: `${data.rowCount ?? 0} registro(s) encontrado(s)`,
       });
     },
     onError: (error: any) => {
@@ -155,7 +155,7 @@ export default function Reports() {
       setReportResult(data);
       toast({
         title: "SQL executado",
-        description: `${data.rowCount} registro(s) encontrado(s)`,
+        description: `${data.rowCount ?? 0} registro(s) encontrado(s)`,
       });
     },
     onError: (error: any) => {

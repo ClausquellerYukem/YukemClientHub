@@ -1212,9 +1212,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         reportName: report.name,
         description: report.description,
-        columns: result.fields.map(f => f.name),
-        rows: result.rows,
-        rowCount: result.rows.length
+        columns: (result.fields || []).map(f => f.name),
+        rows: result.rows || [],
+        rowCount: (result.rows || []).length
       });
     } catch (error) {
       console.error("Error executing predefined report:", error);
@@ -1328,9 +1328,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.executeQuery(query, params);
       
       res.json({
-        columns: result.fields.map(f => f.name),
-        rows: result.rows,
-        rowCount: result.rows.length
+        columns: (result.fields || []).map(f => f.name),
+        rows: result.rows || [],
+        rowCount: (result.rows || []).length
       });
     } catch (error) {
       console.error("Error executing query builder:", error);
@@ -1388,9 +1388,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.executeQuery(queryWithTimeout, []);
       
       res.json({
-        columns: result.fields.map(f => f.name),
-        rows: result.rows,
-        rowCount: result.rows.length
+        columns: (result.fields || []).map(f => f.name),
+        rows: result.rows || [],
+        rowCount: (result.rows || []).length
       });
     } catch (error: any) {
       console.error("Error executing custom SQL:", error);
