@@ -1144,9 +1144,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeCompanyId: currentUser?.activeCompanyId
       });
       
+      if (!currentUser) {
+        console.error('[PATCH /api/user/active-company] ERROR: User not found in session');
+        return res.status(401).json({ error: "User not found" });
+      }
+      
       // SECURITY: Verify user has access to this company before setting as active
       // Admins can switch to any company, non-admins only to associated companies
-      if (currentUser?.role !== 'admin') {
+      if (currentUser.role !== 'admin') {
         const userCompanies = await storage.getUserCompanies(userId);
         const hasAccess = userCompanies.some(c => c.id === companyId);
         
@@ -1156,8 +1161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log('[PATCH /api/user/active-company] Calling storage.setActiveCompany...');
-      const user = await storage.setActiveCompany(userId, companyId);
+      console.log('[PATCH /api/user/active-company] Calling storage.setActiveCompany with UUID:', currentUser.id);
+      const user = await storage.setActiveCompany(currentUser.id, companyId);
       
       if (!user) {
         console.error('[PATCH /api/user/active-company] ERROR: User not found after update');
