@@ -6,6 +6,16 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
+**Empty State Consistency Fix (Nov 7, 2025)**
+- Fixed NaN display bug in Financial page where empty state was missing required fields
+- **Root cause**: `/api/stats/financial` empty state returned incomplete field set (missing `totalRevenue` and `overdueInvoicesAmount`)
+- **Impact**: When users had no active company, Financial page displayed "R$ NaNK" instead of "R$ 0.0K"
+- **Solution**: Standardized empty state response to match normal response structure
+- **Fixed fields**: Changed `monthlyRevenue` → `totalRevenue`, added `overdueInvoicesAmount: 0` to empty state
+- **All stats endpoints verified**: Dashboard, Financial, and Licenses endpoints now return complete field sets with zero values
+- **Testing**: End-to-end tests pass on all pages (Dashboard, Financial, Licenses) with graceful empty state handling
+- **Developer note**: All stats endpoints follow consistent pattern - empty states must include ALL fields from normal response
+
 **Critical Production Bug Fix - OAuth ID vs UUID (Nov 7, 2025)**
 - Fixed critical bug affecting production environment where multiple endpoints were using OAuth ID instead of database UUID
 - **Root cause**: Production database stores user ID as UUID (e.g., `971b039c-c951-4687-baad-69baf9592596`), but session contains OAuth ID (e.g., `39190869`)
