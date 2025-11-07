@@ -91,9 +91,17 @@ export default function Reports() {
   // Execute predefined report mutation
   const executePredefinedReport = useMutation({
     mutationFn: async (reportId: string) => {
-      return await apiRequest("POST", `/api/reports/predefined/${reportId}`, {});
+      const res = await apiRequest("POST", `/api/reports/predefined/${reportId}`, {});
+      return await res.json();
     },
     onSuccess: (data: ReportResult) => {
+      console.log('[REPORTS] Frontend received data:', {
+        rowCount: data.rowCount,
+        columnsLength: data.columns?.length || 0,
+        rowsLength: data.rows?.length || 0,
+        firstRow: data.rows?.[0] || null,
+        fullData: data
+      });
       setReportResult(data);
       toast({
         title: "Relatório executado",
@@ -101,6 +109,7 @@ export default function Reports() {
       });
     },
     onError: (error: any) => {
+      console.error('[REPORTS] Frontend error:', error);
       toast({
         title: "Erro",
         description: error?.error || "Erro ao executar relatório",
@@ -116,13 +125,14 @@ export default function Reports() {
         throw new Error("Selecione uma tabela e pelo menos uma coluna");
       }
       
-      return await apiRequest("POST", "/api/reports/query-builder", {
+      const res = await apiRequest("POST", "/api/reports/query-builder", {
         table: selectedTable,
         columns: selectedColumns,
         filters,
         orderBy,
         limit: parseInt(limitValue) || 100,
       });
+      return await res.json();
     },
     onSuccess: (data: ReportResult) => {
       setReportResult(data);
@@ -147,9 +157,10 @@ export default function Reports() {
         throw new Error("Digite uma consulta SQL");
       }
       
-      return await apiRequest("POST", "/api/reports/custom-sql", {
+      const res = await apiRequest("POST", "/api/reports/custom-sql", {
         sql: customSql,
       });
+      return await res.json();
     },
     onSuccess: (data: ReportResult) => {
       setReportResult(data);

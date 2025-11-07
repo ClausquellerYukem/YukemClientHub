@@ -1209,13 +1209,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Execute query with company ID as parameter for security
       const result = await storage.executeQuery(report.query, [companyId]);
       
-      res.json({
+      const response = {
         reportName: report.name,
         description: report.description,
         columns: (result.fields || []).map(f => f.name),
         rows: result.rows || [],
         rowCount: (result.rows || []).length
+      };
+      
+      console.log(`[REPORTS] Predefined report ${reportId} executed:`, {
+        companyId,
+        rowCount: response.rowCount,
+        columnsCount: response.columns.length,
+        firstRow: response.rows[0] || null
       });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error executing predefined report:", error);
       res.status(500).json({ error: "Erro ao executar relatório" });
