@@ -96,7 +96,7 @@ export default function Dashboard() {
     },
     {
       title: "Repasse Total",
-      value: `R$ ${((repasseStats?.totalRepasse || 0) / 1000).toFixed(1)}K`,
+      value: `R$ ${(repasseStats?.totalRepasse || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: Wallet,
       trend: null,
       description: repasseStats?.description || "Valor da empresa + licenças excedentes",

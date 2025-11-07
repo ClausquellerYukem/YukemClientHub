@@ -1017,7 +1017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalRepasse: 0,
           companyValue: 0,
           excessLicenseRevenue: 0,
-          description: "Valor da empresa + licenças excedentes",
+          description: "R$ 0,00 da empresa + R$ 0,00 de licenças",
         });
       }
       
@@ -1075,7 +1075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalRepasse,
         companyValue,
         excessLicenseRevenue,
-        description: `R$ ${(companyValue / 1000).toFixed(1)}K da empresa + R$ ${(excessLicenseRevenue / 1000).toFixed(1)}K de licenças`,
+        description: `R$ ${companyValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} da empresa + R$ ${excessLicenseRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de licenças`,
       });
     } catch (error) {
       console.error("Error fetching repasse stats:", error);
