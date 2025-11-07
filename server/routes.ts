@@ -1158,6 +1158,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('[PATCH /api/user/active-company] Calling storage.setActiveCompany...');
       const user = await storage.setActiveCompany(userId, companyId);
+      
+      if (!user) {
+        console.error('[PATCH /api/user/active-company] ERROR: User not found after update');
+        return res.status(404).json({ error: "User not found" });
+      }
+      
       console.log('[PATCH /api/user/active-company] User after update:', {
         id: user.id,
         email: user.email,
