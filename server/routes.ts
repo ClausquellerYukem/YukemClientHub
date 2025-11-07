@@ -113,8 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/clients", isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
       const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await getUserFromSession(sessionUser);
       
       // Convert empty strings to null for numeric fields (same fix as companies)
       const payload = { ...req.body };
@@ -618,8 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/boleto/print/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await getUserFromSession(sessionUser);
       const isAdmin = user?.role === 'admin';
       
       let companyId: string | undefined;
@@ -1222,12 +1220,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/initial-setup", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
+      const oauthId = sessionUser.claims.sub; // For rate limiting only
       const { masterPassword } = req.body;
       
       // Rate limiting: 5 attempts per hour per user
       const now = Date.now();
-      const userAttempts = initialSetupAttempts.get(userId);
+      const userAttempts = initialSetupAttempts.get(oauthId);
       
       if (userAttempts) {
         if (now < userAttempts.resetAt) {
@@ -1238,10 +1236,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           userAttempts.count++;
         } else {
-          initialSetupAttempts.set(userId, { count: 1, resetAt: now + 3600000 });
+          initialSetupAttempts.set(oauthId, { count: 1, resetAt: now + 3600000 });
         }
       } else {
-        initialSetupAttempts.set(userId, { count: 1, resetAt: now + 3600000 });
+        initialSetupAttempts.set(oauthId, { count: 1, resetAt: now + 3600000 });
       }
       
       // Validate master password exists
@@ -1256,15 +1254,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!masterPassword || masterPassword !== MASTER_PASSWORD) {
         if (process.env.NODE_ENV === 'development') {
-          console.log('[POST /api/admin/initial-setup] Invalid password attempt for userId:', userId);
+          console.log('[POST /api/admin/initial-setup] Invalid password attempt');
         }
         return res.status(403).json({ 
           error: "Senha master inválida." 
         });
       }
       
+      // Get user with proper ID conversion
+      const user = await getUserFromSession(sessionUser);
+      if (!user) {
+        return res.status(401).json({ error: "Usuário não encontrado" });
+      }
+      
+      const userId = user.id; // Use database UUID, not OAuth ID
+      
       if (process.env.NODE_ENV === 'development') {
-        console.log('[POST /api/admin/initial-setup] Starting initial setup for userId:', userId);
+        console.log('[POST /api/admin/initial-setup] Starting initial setup for user:', user.email);
       }
       
       // Get all companies
@@ -1305,8 +1311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Set first company as active if user doesn't have one
-      const user = await storage.getUser(userId);
-      if (!user?.activeCompanyId && allCompanies.length > 0) {
+      if (!user.activeCompanyId && allCompanies.length > 0) {
         await storage.setActiveCompany(userId, allCompanies[0].id);
         console.log('[POST /api/admin/initial-setup] Set active company to:', allCompanies[0].name);
       }

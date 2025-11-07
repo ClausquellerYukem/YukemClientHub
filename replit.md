@@ -6,6 +6,19 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
+**Critical Production Bug Fix - OAuth ID vs UUID (Nov 7, 2025)**
+- Fixed critical bug affecting production environment where multiple endpoints were using OAuth ID instead of database UUID
+- **Root cause**: Production database stores user ID as UUID (e.g., `971b039c-c951-4687-baad-69baf9592596`), but session contains OAuth ID (e.g., `39190869`)
+- **Impact**: Affected endpoints were failing with 400/404 errors in production while working in development
+- **Fixed endpoints**:
+  - PATCH /api/user/active-company - Now uses `getUserFromSession()` to get correct user UUID before calling `storage.setActiveCompany()`
+  - POST /api/clients - Now uses `getUserFromSession()` instead of `storage.getUser(oauthId)`
+  - POST /api/boleto/print/:id - Now uses `getUserFromSession()` for proper user lookup
+  - POST /api/admin/initial-setup - Refactored to use database UUID for all storage operations
+- **Solution**: All affected endpoints now use `getUserFromSession(sessionUser)` helper which properly converts OAuth ID to database UUID
+- **Testing**: Company selector now works correctly in production, client creation successful
+- **Developer note**: Always use `getUserFromSession()` when you need user data from session - never use `storage.getUser(sessionUser.claims.sub)` directly
+
 **Favicon and Logo Update (Nov 6, 2025)**
 - Added custom favicon.ico to application
   - Favicon file placed in client/public/favicon.ico

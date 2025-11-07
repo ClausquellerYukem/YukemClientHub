@@ -1,0 +1,64 @@
+index-D3ufJBh5.js:48  POST https://yukem-client-hub-comtecnologiaer.replit.app/api/clients 400 (Bad Request)
+$t @ index-D3ufJBh5.js:48
+mutationFn @ index-D3ufJBh5.js:385
+fn @ index-D3ufJBh5.js:48
+x @ index-D3ufJBh5.js:48
+start @ index-D3ufJBh5.js:48
+execute @ index-D3ufJBh5.js:48
+await in execute
+mutate @ index-D3ufJBh5.js:48
+(anonymous) @ index-D3ufJBh5.js:48
+onSubmit @ index-D3ufJBh5.js:385
+(anonymous) @ index-D3ufJBh5.js:379
+await in (anonymous)
+KV @ index-D3ufJBh5.js:37
+QV @ index-D3ufJBh5.js:37
+XV @ index-D3ufJBh5.js:37
+I_ @ index-D3ufJBh5.js:37
+N$ @ index-D3ufJBh5.js:37
+(anonymous) @ index-D3ufJBh5.js:37
+Bw @ index-D3ufJBh5.js:40
+t$ @ index-D3ufJBh5.js:37
+zg @ index-D3ufJBh5.js:37
+hw @ index-D3ufJBh5.js:37
+fU @ index-D3ufJBh5.js:37Understand this error
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
+index-D3ufJBh5.js:48  POST https://yukem-client-hub-comtecnologiaer.replit.app/api/clients 400 (Bad Request)
+$t @ index-D3ufJBh5.js:48
+mutationFn @ index-D3ufJBh5.js:385
+fn @ index-D3ufJBh5.js:48
+x @ index-D3ufJBh5.js:48
+start @ index-D3ufJBh5.js:48
+execute @ index-D3ufJBh5.js:48
+await in execute
+mutate @ index-D3ufJBh5.js:48
+(anonymous) @ index-D3ufJBh5.js:48
+onSubmit @ index-D3ufJBh5.js:385
+(anonymous) @ index-D3ufJBh5.js:379
+await in (anonymous)
+KV @ index-D3ufJBh5.js:37
+QV @ index-D3ufJBh5.js:37
+XV @ index-D3ufJBh5.js:37
+I_ @ index-D3ufJBh5.js:37
+N$ @ index-D3ufJBh5.js:37
+(anonymous) @ index-D3ufJBh5.js:37
+Bw @ index-D3ufJBh5.js:40
+t$ @ index-D3ufJBh5.js:37
+zg @ index-D3ufJBh5.js:37
+hw @ index-D3ufJBh5.js:37
+fU @ index-D3ufJBh5.js:37Understand this error
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
