@@ -54,23 +54,31 @@ export function CompanySelector() {
 
   const setActiveCompanyMutation = useMutation({
     mutationFn: async (companyId: string) => {
-      return apiRequest("PATCH", "/api/user/active-company", { companyId });
+      console.log('[CompanySelector] Calling PATCH /api/user/active-company with:', companyId);
+      const result = await apiRequest("PATCH", "/api/user/active-company", { companyId });
+      console.log('[CompanySelector] PATCH response:', result);
+      return result;
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      console.log('[CompanySelector] Mutation success, starting invalidations...');
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      console.log('[CompanySelector] Invalidated /api/auth/user');
       await queryClient.invalidateQueries({ queryKey: ["/api/user/companies"] });
+      console.log('[CompanySelector] Invalidated /api/user/companies');
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/monthly-revenue"] });
       queryClient.invalidateQueries({ queryKey: ["/api/boleto/config"] });
+      console.log('[CompanySelector] All invalidations complete');
       toast({
         title: "Empresa alterada",
         description: "A empresa ativa foi alterada com sucesso",
       });
     },
     onError: (error: any) => {
+      console.error('[CompanySelector] Mutation error:', error);
       toast({
         title: "Erro",
         description: error?.error || "Falha ao alterar empresa",
@@ -80,6 +88,12 @@ export function CompanySelector() {
   });
 
   const handleCompanyChange = (companyId: string) => {
+    console.log('[CompanySelector] handleCompanyChange called:', {
+      newCompanyId: companyId,
+      currentActiveCompanyId: user?.activeCompanyId,
+      isPending: setActiveCompanyMutation.isPending,
+      timestamp: new Date().toISOString()
+    });
     setActiveCompanyMutation.mutate(companyId);
   };
 
