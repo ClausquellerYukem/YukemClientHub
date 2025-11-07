@@ -1,10 +1,21 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { InvoicesTable } from "@/components/invoices-table";
 import { StatCard } from "@/components/stat-card";
-import { DollarSign, TrendingUp, AlertCircle } from "lucide-react";
+import { DollarSign, TrendingUp, AlertCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Invoice, Client } from "@shared/schema";
+
+interface FinancialStats {
+  totalRevenue: number;
+  totalRevenueTrend: { value: string; isPositive: boolean } | null;
+  paidInvoicesCount: number;
+  paidInvoicesTrend: { value: string; isPositive: boolean } | null;
+  pendingInvoicesCount: number;
+  pendingInvoicesTrend: { value: string; isPositive: boolean } | null;
+  overdueInvoicesCount: number;
+  overdueInvoicesAmount: number;
+}
 
 export default function Financial() {
   const { toast } = useToast();
@@ -17,33 +28,41 @@ export default function Financial() {
     queryKey: ["/api/clients"],
   });
 
-  const paidInvoices = invoices.filter(i => i.status === "paid");
-  const pendingInvoices = invoices.filter(i => i.status === "pending");
-  const totalRevenue = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+  const { data: stats, isLoading: loadingStats } = useQuery<FinancialStats>({
+    queryKey: ["/api/stats/financial"],
+  });
 
-  const stats = [
+  const statsCards = stats ? [
     {
-      title: "Receita Total",
-      value: `R$ ${(totalRevenue / 1000).toFixed(1)}K`,
+      title: "Receita do Mês",
+      value: `R$ ${(stats.totalRevenue / 1000).toFixed(1)}K`,
       icon: DollarSign,
-      trend: { value: "23%", isPositive: true },
+      trend: stats.totalRevenueTrend,
       testId: "stat-total-revenue",
     },
     {
-      title: "Faturas Pagas",
-      value: paidInvoices.length.toString(),
+      title: "Faturas Pagas (Mês)",
+      value: stats.paidInvoicesCount.toString(),
       icon: TrendingUp,
-      trend: { value: "15%", isPositive: true },
+      trend: stats.paidInvoicesTrend,
       testId: "stat-paid-invoices",
     },
     {
-      title: "Pendentes",
-      value: pendingInvoices.length.toString(),
+      title: "Pendentes (Mês)",
+      value: stats.pendingInvoicesCount.toString(),
       icon: AlertCircle,
-      trend: { value: "5%", isPositive: false },
+      trend: stats.pendingInvoicesTrend,
       testId: "stat-pending-invoices",
     },
-  ];
+    {
+      title: "Parcelas em Atraso",
+      value: stats.overdueInvoicesCount.toString(),
+      icon: AlertTriangle,
+      trend: null,
+      description: `R$ ${(stats.overdueInvoicesAmount / 1000).toFixed(1)}K em atraso`,
+      testId: "stat-overdue-invoices",
+    },
+  ] : [];
 
   const clientMap = new Map(clients.map(c => [c.id, c.companyName]));
 
@@ -90,7 +109,7 @@ export default function Financial() {
     printBoletoMutation.mutate(invoiceId);
   };
 
-  if (loadingInvoices) {
+  if (loadingInvoices || loadingStats) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Carregando financeiro...</p>
@@ -107,8 +126,8 @@ export default function Financial() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statsCards.map((stat) => (
           <StatCard key={stat.title} {...stat} />
         ))}
       </div>

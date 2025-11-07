@@ -48,6 +48,16 @@ async function getCompanyIdForUser(req: any): Promise<string | undefined> {
   throw new Error('User does not have an active company set');
 }
 
+// Helper to calculate trend percentage for statistics
+function calculateTrend(current: number, previous: number) {
+  if (previous === 0) return null; // No previous data
+  const change = ((current - previous) / previous) * 100;
+  return {
+    value: `${Math.abs(change).toFixed(1)}%`,
+    isPositive: change >= 0,
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
   await setupAuth(app);
@@ -890,16 +900,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const prevMonthRevenue = prevMonthPaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
-      // Helper to calculate trend
-      const calculateTrend = (current: number, previous: number) => {
-        if (previous === 0) return null; // No previous data
-        const change = ((current - previous) / previous) * 100;
-        return {
-          value: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
-          isPositive: change > 0
-        };
-      };
-
       const stats = {
         totalClients: clients.length,
         totalClientsTrend: calculateTrend(clients.length, prevMonthClients),
@@ -963,6 +963,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching monthly revenue:", error);
       res.status(500).json({ error: "Failed to fetch monthly revenue" });
+    }
+  });
+
+  // Financial Stats - Real data with trends
+  app.get("/api/stats/financial", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const invoices = await storage.getAllInvoices(companyId);
+      
+      // Current month boundaries
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      
+      // Previous month boundaries
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+      // Current month metrics
+      const currentPaidInvoices = invoices.filter(i => {
+        if (i.status !== "paid" || !i.paidAt) return false;
+        const paidDate = new Date(i.paidAt);
+        return paidDate >= currentMonthStart && paidDate <= currentMonthEnd;
+      });
+      
+      const currentPendingInvoices = invoices.filter(i => {
+        if (!i.dueDate) return false;
+        const dueDate = new Date(i.dueDate);
+        if (!(dueDate >= currentMonthStart && dueDate <= currentMonthEnd)) return false;
+        return !i.paidAt || new Date(i.paidAt) > currentMonthEnd;
+      });
+      
+      const currentOverdueInvoices = invoices.filter(i => {
+        if (i.status === "paid") return false;
+        if (!i.dueDate) return false;
+        const dueDate = new Date(i.dueDate);
+        return dueDate < now;
+      });
+      
+      const currentRevenue = currentPaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+      
+      // Previous month metrics
+      const prevPaidInvoices = invoices.filter(i => {
+        if (i.status !== "paid" || !i.paidAt) return false;
+        const paidDate = new Date(i.paidAt);
+        return paidDate >= previousMonthStart && paidDate <= previousMonthEnd;
+      });
+      
+      const prevPendingInvoices = invoices.filter(i => {
+        if (!i.dueDate) return false;
+        const dueDate = new Date(i.dueDate);
+        if (!(dueDate >= previousMonthStart && dueDate <= previousMonthEnd)) return false;
+        return !i.paidAt || new Date(i.paidAt) > previousMonthEnd;
+      });
+      
+      const prevRevenue = prevPaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+
+      const stats = {
+        totalRevenue: currentRevenue,
+        totalRevenueTrend: calculateTrend(currentRevenue, prevRevenue),
+        paidInvoicesCount: currentPaidInvoices.length,
+        paidInvoicesTrend: calculateTrend(currentPaidInvoices.length, prevPaidInvoices.length),
+        pendingInvoicesCount: currentPendingInvoices.length,
+        pendingInvoicesTrend: calculateTrend(currentPendingInvoices.length, prevPendingInvoices.length),
+        overdueInvoicesCount: currentOverdueInvoices.length,
+        overdueInvoicesAmount: currentOverdueInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0),
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching financial stats:", error);
+      res.status(500).json({ error: "Failed to fetch financial stats" });
+    }
+  });
+
+  // License Stats - Real data with trends
+  app.get("/api/stats/licenses", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
+    try {
+      const companyId = await getCompanyIdForUser(req);
+      const licenses = await storage.getAllLicenses(companyId);
+      
+      // Current stats
+      const now = new Date();
+      const activeLicenses = licenses.filter(l => {
+        const activatedAt = new Date(l.activatedAt);
+        const expiresAt = new Date(l.expiresAt);
+        return activatedAt <= now && expiresAt > now && l.isActive;
+      });
+      
+      const inactiveLicenses = licenses.filter(l => !l.isActive);
+      
+      // Previous month boundaries
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      
+      // Previous month stats
+      const prevActiveLicenses = licenses.filter(l => {
+        const activatedAt = new Date(l.activatedAt);
+        const expiresAt = new Date(l.expiresAt);
+        return activatedAt <= previousMonthEnd && expiresAt > previousMonthEnd;
+      });
+
+      const stats = {
+        totalLicenses: licenses.length,
+        activeLicenses: activeLicenses.length,
+        activeLicensesTrend: calculateTrend(activeLicenses.length, prevActiveLicenses.length),
+        inactiveLicenses: inactiveLicenses.length,
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching license stats:", error);
+      res.status(500).json({ error: "Failed to fetch license stats" });
     }
   });
 

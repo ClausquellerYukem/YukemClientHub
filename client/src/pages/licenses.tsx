@@ -6,6 +6,13 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { License, Client } from "@shared/schema";
 
+interface LicenseStats {
+  totalLicenses: number;
+  activeLicenses: number;
+  activeLicensesTrend: { value: string; isPositive: boolean } | null;
+  inactiveLicenses: number;
+}
+
 export default function Licenses() {
   const { toast } = useToast();
 
@@ -15,6 +22,10 @@ export default function Licenses() {
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
+  });
+
+  const { data: stats, isLoading: loadingStats } = useQuery<LicenseStats>({
+    queryKey: ["/api/stats/licenses"],
   });
 
   const toggleMutation = useMutation({
@@ -37,30 +48,27 @@ export default function Licenses() {
     },
   });
 
-  const activeLicenses = licenses.filter(l => l.isActive).length;
-  const inactiveLicenses = licenses.filter(l => !l.isActive).length;
-
-  const stats = [
+  const statsCards = stats ? [
     {
       title: "Total de Licenças",
-      value: licenses.length.toString(),
+      value: stats.totalLicenses.toString(),
       icon: Key,
       testId: "stat-total-licenses",
     },
     {
       title: "Licenças Ativas",
-      value: activeLicenses.toString(),
+      value: stats.activeLicenses.toString(),
       icon: CheckCircle,
-      trend: { value: "8%", isPositive: true },
+      trend: stats.activeLicensesTrend,
       testId: "stat-active-licenses",
     },
     {
       title: "Licenças Inativas",
-      value: inactiveLicenses.toString(),
+      value: stats.inactiveLicenses.toString(),
       icon: XCircle,
       testId: "stat-inactive-licenses",
     },
-  ];
+  ] : [];
 
   const clientMap = new Map(clients.map(c => [c.id, c.companyName]));
 
@@ -73,7 +81,7 @@ export default function Licenses() {
     expiresAt: license.expiresAt.toString(),
   }));
 
-  if (loadingLicenses) {
+  if (loadingLicenses || loadingStats) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Carregando licenças...</p>
@@ -91,7 +99,7 @@ export default function Licenses() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat) => (
+        {statsCards.map((stat) => (
           <StatCard key={stat.title} {...stat} />
         ))}
       </div>
