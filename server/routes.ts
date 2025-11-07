@@ -1127,12 +1127,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = sessionUser.claims.sub;
       const { companyId } = req.body;
       
+      console.log('[PATCH /api/user/active-company] === REQUEST START ===');
+      console.log('[PATCH /api/user/active-company] userId:', userId);
+      console.log('[PATCH /api/user/active-company] newCompanyId:', companyId);
+      
       if (!companyId) {
         return res.status(400).json({ error: "companyId is required" });
       }
       
       // Get user to check if admin
       const currentUser = await getUserFromSession(sessionUser);
+      console.log('[PATCH /api/user/active-company] Current user before update:', {
+        id: currentUser?.id,
+        email: currentUser?.email,
+        role: currentUser?.role,
+        activeCompanyId: currentUser?.activeCompanyId
+      });
       
       // SECURITY: Verify user has access to this company before setting as active
       // Admins can switch to any company, non-admins only to associated companies
@@ -1141,14 +1151,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hasAccess = userCompanies.some(c => c.id === companyId);
         
         if (!hasAccess) {
+          console.log('[PATCH /api/user/active-company] FORBIDDEN - user not associated with company');
           return res.status(403).json({ error: "User does not have access to this company" });
         }
       }
 
+      console.log('[PATCH /api/user/active-company] Calling storage.setActiveCompany...');
       const user = await storage.setActiveCompany(userId, companyId);
+      console.log('[PATCH /api/user/active-company] User after update:', {
+        id: user.id,
+        email: user.email,
+        activeCompanyId: user.activeCompanyId
+      });
+      console.log('[PATCH /api/user/active-company] === REQUEST END ===');
+      
       res.json(user);
     } catch (error) {
-      console.error("Error setting active company:", error);
+      console.error("[PATCH /api/user/active-company] === ERROR ===");
+      console.error("[PATCH /api/user/active-company] Error:", error);
       res.status(500).json({ error: "Failed to set active company" });
     }
   });

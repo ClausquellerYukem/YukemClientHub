@@ -1,0 +1,49 @@
+[useAuth] Current state - isLoading: true isAuthenticated: false user: undefined
+index-D3ufJBh5.js:387 [AuthLayout] Rendering - isAuthenticated: false isLoading: true
+index-D3ufJBh5.js:387 [AuthLayout] Showing loading skeleton
+index-D3ufJBh5.js:312 [useAuth] Fetching /api/auth/user...
+index-D3ufJBh5.js:312 [useAuth] Response status: 200
+index-D3ufJBh5.js:312 [useAuth] Got user data: comtecnologia.erp@gmail.com Full data: {id: '971b039c-c951-4687-baad-69baf9592596', email: 'comtecnologia.erp@gmail.com', firstName: 'Clausqueller', lastName: 'Mitome', profileImageUrl: null, …}
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:387 [AuthLayout] Rendering - isAuthenticated: true isLoading: false
+index-D3ufJBh5.js:387 [AuthLayout] User authenticated - showing Dashboard
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: true, hasCompanies: false, companiesCount: 0, companies: undefined, activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Showing loading state
+index-D3ufJBh5.js:312 [useAuth] Fetching /api/auth/user...
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:387 [AuthLayout] Rendering - isAuthenticated: true isLoading: false
+index-D3ufJBh5.js:387 [AuthLayout] User authenticated - showing Dashboard
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: true, hasCompanies: false, companiesCount: 0, companies: undefined, activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Showing loading state
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
+index-D3ufJBh5.js:312 [useAuth] Response status: 200
+index-D3ufJBh5.js:312 [useAuth] Got user data: comtecnologia.erp@gmail.com Full data: {id: '971b039c-c951-4687-baad-69baf9592596', email: 'comtecnologia.erp@gmail.com', firstName: 'Clausqueller', lastName: 'Mitome', profileImageUrl: null, …}
+index-D3ufJBh5.js:312 [CompanySelector] handleCompanyChange called: {newCompanyId: 'c9e0b4a4-ab52-43d8-851b-ebdf2905c9f5', currentActiveCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', isPending: false, timestamp: '2025-11-07T00:29:44.511Z'}
+index-D3ufJBh5.js:312 [CompanySelector] Calling PATCH /api/user/active-company with: c9e0b4a4-ab52-43d8-851b-ebdf2905c9f5
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
+index-D3ufJBh5.js:312 [CompanySelector] PATCH response: Response {type: 'basic', url: 'https://yukem-client-hub-comtecnologiaer.replit.app/api/user/active-company', redirected: false, status: 200, ok: true, …}
+index-D3ufJBh5.js:312 [CompanySelector] Mutation success, starting invalidations...
+index-D3ufJBh5.js:312 [useAuth] Fetching /api/auth/user...
+index-D3ufJBh5.js:312 [useAuth] Response status: 200
+index-D3ufJBh5.js:312 [useAuth] Got user data: comtecnologia.erp@gmail.com Full data: {id: '971b039c-c951-4687-baad-69baf9592596', email: 'comtecnologia.erp@gmail.com', firstName: 'Clausqueller', lastName: 'Mitome', profileImageUrl: null, …}
+index-D3ufJBh5.js:312 [CompanySelector] Invalidated /api/auth/user
+index-D3ufJBh5.js:312 [CompanySelector] Invalidated /api/user/companies
+index-D3ufJBh5.js:312 [CompanySelector] All invalidations complete
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
+index-D3ufJBh5.js:312 [useAuth] Current state - isLoading: false isAuthenticated: true user: comtecnologia.erp@gmail.com
+index-D3ufJBh5.js:312 [CompanySelector] State: {isLoading: false, hasCompanies: true, companiesCount: 2, companies: Array(2), activeCompanyId: 'f593d9f4-4972-4843-a43a-9df4f05212df', …}
+index-D3ufJBh5.js:312 [CompanySelector] Companies data received: {isArray: true, length: 2, data: Array(2)}
+index-D3ufJBh5.js:312 [CompanySelector] Multiple companies mode: 2 companies
