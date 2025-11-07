@@ -7,9 +7,9 @@ import { setupAuth, isAuthenticated, isAdmin, requirePermission, getUserFromSess
 
 // Helper function to get companyId for multi-tenant data isolation
 // Returns activeCompanyId if user has one set (for both admins and regular users)
-// Returns undefined only for admins without activeCompanyId (they can see all companies)
-// Throws error for regular users without activeCompanyId
-async function getCompanyIdForUser(req: any): Promise<string | undefined> {
+// Returns undefined for admins without activeCompanyId (they can see all companies)
+// Returns null for regular users without activeCompanyId (allows graceful empty state)
+async function getCompanyIdForUser(req: any): Promise<string | undefined | null> {
   // Use dbUserId from session if available, otherwise use OAuth ID
   const userId = req.user.dbUserId || req.user.claims.sub;
   console.log('[getCompanyIdForUser] Looking for user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims.sub, 'Using:', userId);
@@ -43,9 +43,9 @@ async function getCompanyIdForUser(req: any): Promise<string | undefined> {
     return undefined;
   }
   
-  // Regular users must have an active company
-  console.error('[getCompanyIdForUser] ERROR: Regular user does not have activeCompanyId set');
-  throw new Error('User does not have an active company set');
+  // Regular users without active company return null (allows graceful empty state)
+  console.log('[getCompanyIdForUser] Regular user without activeCompanyId - returning null for empty state');
+  return null;
 }
 
 // Helper to calculate trend percentage for statistics
@@ -496,6 +496,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/licenses/check-overdue", isAuthenticated, async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
+      
+      // Return empty result for users without company (graceful empty state)
+      if (companyId === null) {
+        return res.json({ blocked: 0, unblocked: 0 });
+      }
+      
       const result = await storage.checkAndBlockOverdueLicenses(companyId);
       res.json(result);
     } catch (error) {
@@ -783,6 +789,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats/dashboard", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
+      
+      // Return empty metrics for users without company (graceful empty state)
+      if (companyId === null) {
+        return res.json({
+          totalClients: 0,
+          totalClientsTrend: null,
+          activeLicenses: 0,
+          activeLicensesTrend: null,
+          monthlyRevenue: 0,
+          monthlyRevenueTrend: null,
+          conversionRate: 0,
+          conversionRateTrend: null,
+          totalRevenue: 0,
+          totalRevenueTrend: null,
+          paidInvoicesCount: 0,
+          paidInvoicesTrend: null,
+          pendingInvoicesCount: 0,
+          pendingInvoicesTrend: null,
+        });
+      }
+      
       const clients = await storage.getAllClients(companyId);
       const licenses = await storage.getAllLicenses(companyId);
       const invoices = await storage.getAllInvoices(companyId);
@@ -928,6 +955,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats/monthly-revenue", isAuthenticated, async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
+      
+      // Return empty chart data for users without company (graceful empty state)
+      if (companyId === null) {
+        const now = new Date();
+        const emptyMonthsData = [];
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthName = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+          emptyMonthsData.push({ month: monthName, revenue: 0 });
+        }
+        return res.json(emptyMonthsData);
+      }
+      
       const invoices = await storage.getAllInvoices(companyId);
       
       // Get the last 6 months
@@ -970,6 +1010,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats/financial", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
+      
+      // Return empty metrics for users without company (graceful empty state)
+      if (companyId === null) {
+        return res.json({
+          totalRevenue: 0,
+          totalRevenueTrend: null,
+          paidInvoicesCount: 0,
+          paidInvoicesTrend: null,
+          pendingInvoicesCount: 0,
+          pendingInvoicesTrend: null,
+          overdueInvoicesCount: 0,
+          overdueInvoicesAmount: 0,
+        });
+      }
+      
       const invoices = await storage.getAllInvoices(companyId);
       
       // Current month boundaries
@@ -1042,6 +1097,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats/licenses", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
     try {
       const companyId = await getCompanyIdForUser(req);
+      
+      // Return empty metrics for users without company (graceful empty state)
+      if (companyId === null) {
+        return res.json({
+          totalLicenses: 0,
+          activeLicenses: 0,
+          activeLicensesTrend: null,
+          inactiveLicenses: 0,
+        });
+      }
+      
       const licenses = await storage.getAllLicenses(companyId);
       
       // Current stats
