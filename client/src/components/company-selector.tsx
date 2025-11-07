@@ -70,6 +70,7 @@ export function CompanySelector() {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/monthly-revenue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/repasse"] });
       queryClient.invalidateQueries({ queryKey: ["/api/boleto/config"] });
       console.log('[CompanySelector] All invalidations complete');
       toast({
