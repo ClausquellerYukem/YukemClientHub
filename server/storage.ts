@@ -720,11 +720,12 @@ export class DatabaseStorage implements IStorage {
       // This is safer than sql.raw() as it properly handles parameter placeholders ($1, $2, etc.)
       const result = await pool.query(query, params);
       
-      // Extract field names from result
-      const fields = result.fields.map(f => ({ name: f.name }));
+      // Extract field names from result (handle multiple queries where fields might be undefined)
+      const fields = result.fields ? result.fields.map(f => ({ name: f.name })) : [];
+      const rows = result.rows || [];
       
       return {
-        rows: result.rows,
+        rows,
         fields
       };
     } catch (error) {

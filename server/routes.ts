@@ -1244,10 +1244,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tabela não permitida" });
       }
 
-      // Validate columns (prevent SQL injection)
+      // Map of valid columns for each table (prevents SQL errors for non-existent columns)
+      const tableColumns: Record<string, string[]> = {
+        'clients': ['id', 'company_id', 'company_name', 'contact_name', 'email', 'phone', 'cnpj', 'plan', 'monthly_value', 'due_day', 'status', 'created_at'],
+        'licenses': ['id', 'company_id', 'client_id', 'license_key', 'is_active', 'activated_at', 'expires_at'],
+        'invoices': ['id', 'company_id', 'client_id', 'amount', 'due_date', 'paid_at', 'status', 'created_at', 'parcela_id', 'qrcode_id', 'qrcode', 'qrcode_base64', 'url', 'generated_at'],
+        'companies': ['id', 'name', 'logo_url', 'status', 'cnpj', 'state_registration', 'city_registration', 'address_street', 'address_number', 'address_complement', 'address_district', 'address_city', 'address_state', 'address_zip_code', 'monthly_value', 'revenue_share_percentage', 'free_license_quota', 'created_at', 'updated_at']
+      };
+
+      // Validate columns (prevent SQL injection and non-existent columns)
       const validColumns = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
       if (!columns.every((col: string) => validColumns.test(col))) {
         return res.status(400).json({ error: "Nomes de colunas inválidos" });
+      }
+
+      // Check if all columns exist in the selected table
+      const availableColumns = tableColumns[table];
+      const invalidColumns = columns.filter((col: string) => !availableColumns.includes(col));
+      if (invalidColumns.length > 0) {
+        return res.status(400).json({ 
+          error: `Colunas não encontradas na tabela '${table}': ${invalidColumns.join(', ')}. Colunas disponíveis: ${availableColumns.join(', ')}` 
+        });
       }
 
       // Build safe query
@@ -1261,6 +1278,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const filter of filters) {
           if (!validColumns.test(filter.column)) {
             return res.status(400).json({ error: "Nome de coluna inválido no filtro" });
+          }
+
+          // Validate filter column exists in table
+          if (!availableColumns.includes(filter.column)) {
+            return res.status(400).json({ 
+              error: `Coluna '${filter.column}' não encontrada na tabela '${table}'. Colunas disponíveis: ${availableColumns.join(', ')}` 
+            });
           }
           
           const operators: Record<string, string> = {
@@ -1283,8 +1307,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Add order by
-      if (orderBy && validColumns.test(orderBy)) {
+      // Add order by (with validation)
+      if (orderBy) {
+        if (!validColumns.test(orderBy)) {
+          return res.status(400).json({ error: "Nome de coluna inválido em ORDER BY" });
+        }
+        if (!availableColumns.includes(orderBy)) {
+          return res.status(400).json({ 
+            error: `Coluna '${orderBy}' não encontrada na tabela '${table}'. Colunas disponíveis: ${availableColumns.join(', ')}` 
+          });
+        }
         query += ` ORDER BY ${orderBy}`;
       }
 

@@ -169,7 +169,7 @@ export default function Reports() {
 
   // Export to Excel
   const exportToExcel = () => {
-    if (!reportResult || reportResult.rows.length === 0) {
+    if (!reportResult || !reportResult.rows || reportResult.rows.length === 0) {
       toast({
         title: "Aviso",
         description: "Nenhum dado para exportar",
@@ -193,7 +193,7 @@ export default function Reports() {
 
   // Print report
   const printReport = () => {
-    if (!reportResult || reportResult.rows.length === 0) {
+    if (!reportResult || !reportResult.rows || reportResult.rows.length === 0) {
       toast({
         title: "Aviso",
         description: "Nenhum dado para imprimir",
@@ -517,7 +517,7 @@ export default function Reports() {
       </Tabs>
 
       {/* Results Section */}
-      {reportResult && reportResult.rows.length > 0 && (
+      {reportResult && reportResult.rows?.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -588,7 +588,7 @@ export default function Reports() {
         </Card>
       )}
 
-      {reportResult && reportResult.rows.length === 0 && (
+      {reportResult && (!reportResult.rows || reportResult.rows.length === 0) && (
         <Card>
           <CardContent className="flex items-center justify-center h-32">
             <p className="text-muted-foreground">
