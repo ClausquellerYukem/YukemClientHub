@@ -1021,6 +1021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // At this point, companyId is guaranteed to be a valid string
       const company = await storage.getCompany(companyId);
       const clients = await storage.getAllClients(companyId);
       const licenses = await storage.getAllLicenses(companyId);

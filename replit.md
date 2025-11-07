@@ -6,6 +6,23 @@ Yukem is a white label client management platform designed for managing ERP clie
 
 ## Recent Changes (Nov 2025)
 
+**Repasse Total Dashboard Card (Nov 7, 2025)**
+- Added "Repasse Total" card to dashboard showing total revenue transfer calculation
+- **Calculation**: Total Repasse = Company Monthly Value + Excess License Revenue
+  - Company Monthly Value: `monthlyValue` field from selected company
+  - Excess License Revenue: Revenue from licenses beyond `freeLicenseQuota`
+  - Formula: (active licenses - free quota) × client monthly value × (revenue share % / 100)
+- **Backend**: Created GET /api/stats/repasse endpoint
+  - Returns: `totalRepasse`, `companyValue`, `excessLicenseRevenue`, `description`
+  - Respects multi-tenant isolation (company-scoped)
+  - Empty state returns zeros when no active company
+- **Frontend**: New dashboard card positioned after "Receita Mensal"
+  - Icon: Wallet (lucide-react)
+  - Format: R$ X.XK (currency in thousands)
+  - Description shows breakdown: "R$ X.XK da empresa + R$ X.XK de licenças"
+  - No trend displayed (static metric)
+- **Testing**: End-to-end tests confirm card renders correctly with proper formatting
+
 **Empty State Consistency Fix (Nov 7, 2025)**
 - Fixed NaN display bug in Financial page where empty state was missing required fields
 - **Root cause**: `/api/stats/financial` empty state returned incomplete field set (missing `totalRevenue` and `overdueInvoicesAmount`)
