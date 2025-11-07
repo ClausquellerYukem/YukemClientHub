@@ -32,7 +32,7 @@ import {
   companies,
   userCompanies,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, inArray, lt, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -115,6 +115,9 @@ export interface IStorage {
   
   // Active company operations
   setActiveCompany(userId: string, companyId: string): Promise<User | undefined>;
+  
+  // Reports - Execute raw SQL queries (admin only, security validated)
+  executeQuery(query: string, params?: any[]): Promise<{ rows: any[]; fields: { name: string }[] }>;
 }
 
 // Migrated from MemStorage to DatabaseStorage - Reference: blueprint:javascript_database
@@ -708,6 +711,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  // Execute raw SQL queries for reports (admin only, security validated in routes)
+  async executeQuery(query: string, params: any[] = []): Promise<{ rows: any[]; fields: { name: string }[] }> {
+    try {
+      // Execute query using Neon pool client directly (supports parameter binding)
+      // This is safer than sql.raw() as it properly handles parameter placeholders ($1, $2, etc.)
+      const result = await pool.query(query, params);
+      
+      // Extract field names from result
+      const fields = result.fields.map(f => ({ name: f.name }));
+      
+      return {
+        rows: result.rows,
+        fields
+      };
+    } catch (error) {
+      console.error('Error executing query:', error);
+      throw error;
+    }
   }
 }
 

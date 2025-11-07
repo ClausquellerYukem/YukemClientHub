@@ -1083,6 +1083,395 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== REPORTS ENDPOINTS =====
+  
+  // Predefined Reports - Available to all authenticated users
+  app.post("/api/reports/predefined/:reportId", isAuthenticated, async (req, res) => {
+    try {
+      const { reportId } = req.params;
+      const { filters } = req.body;
+      const companyId = await getCompanyIdForUser(req);
+      
+      if (!companyId) {
+        return res.status(400).json({ error: "Nenhuma empresa selecionada" });
+      }
+
+      // Define predefined reports with safe, validated SQL
+      const predefinedReports: Record<string, { name: string; query: string; description: string }> = {
+        'monthly-revenue-by-client': {
+          name: 'Faturamento Mensal por Cliente',
+          description: 'Receita mensal detalhada de cada cliente',
+          query: `
+            SELECT 
+              c.company_name as "Cliente",
+              c.plan as "Plano",
+              c.monthly_value as "Valor Mensal",
+              c.status as "Status",
+              COUNT(DISTINCT l.id) as "Licenças Ativas",
+              TO_CHAR(c.created_at, 'DD/MM/YYYY') as "Data Cadastro"
+            FROM clients c
+            LEFT JOIN licenses l ON l.client_id = c.id AND l.is_active = true
+            WHERE c.company_id = $1
+            GROUP BY c.id, c.company_name, c.plan, c.monthly_value, c.status, c.created_at
+            ORDER BY c.company_name
+          `
+        },
+        'licenses-expiring-soon': {
+          name: 'Licenças Vencendo (Próximos 30 Dias)',
+          description: 'Licenças que expiram nos próximos 30 dias',
+          query: `
+            SELECT 
+              c.company_name as "Cliente",
+              l.license_key as "Chave da Licença",
+              TO_CHAR(l.expires_at, 'DD/MM/YYYY') as "Data Expiração",
+              CASE 
+                WHEN l.is_active THEN 'Ativa'
+                ELSE 'Inativa'
+              END as "Status",
+              EXTRACT(DAY FROM (l.expires_at - NOW())) as "Dias Restantes"
+            FROM licenses l
+            JOIN clients c ON c.id = l.client_id
+            WHERE l.company_id = $1
+            AND l.expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days'
+            ORDER BY l.expires_at
+          `
+        },
+        'payment-history': {
+          name: 'Histórico de Pagamentos',
+          description: 'Histórico completo de faturas pagas',
+          query: `
+            SELECT 
+              c.company_name as "Cliente",
+              i.amount as "Valor",
+              TO_CHAR(i.due_date, 'DD/MM/YYYY') as "Vencimento",
+              TO_CHAR(i.paid_at, 'DD/MM/YYYY') as "Data Pagamento",
+              i.status as "Status",
+              CASE 
+                WHEN i.paid_at IS NULL THEN null
+                WHEN i.paid_at <= i.due_date THEN 'No Prazo'
+                ELSE 'Atrasado'
+              END as "Situação"
+            FROM invoices i
+            JOIN clients c ON c.id = i.client_id
+            WHERE i.company_id = $1
+            AND i.status = 'paid'
+            ORDER BY i.paid_at DESC
+          `
+        },
+        'pending-invoices': {
+          name: 'Faturas Pendentes',
+          description: 'Todas as faturas aguardando pagamento',
+          query: `
+            SELECT 
+              c.company_name as "Cliente",
+              c.email as "Email",
+              c.phone as "Telefone",
+              i.amount as "Valor",
+              TO_CHAR(i.due_date, 'DD/MM/YYYY') as "Vencimento",
+              EXTRACT(DAY FROM (NOW() - i.due_date)) as "Dias Atraso",
+              CASE 
+                WHEN NOW() > i.due_date THEN 'Vencida'
+                ELSE 'A Vencer'
+              END as "Situação"
+            FROM invoices i
+            JOIN clients c ON c.id = i.client_id
+            WHERE i.company_id = $1
+            AND i.status = 'pending'
+            ORDER BY i.due_date
+          `
+        },
+        'sales-performance': {
+          name: 'Performance de Vendas',
+          description: 'Resumo de vendas e receitas por período',
+          query: `
+            SELECT 
+              TO_CHAR(DATE_TRUNC('month', i.created_at), 'MM/YYYY') as "Mês",
+              COUNT(DISTINCT i.client_id) as "Clientes Ativos",
+              COUNT(i.id) as "Total Faturas",
+              SUM(CASE WHEN i.status = 'paid' THEN 1 ELSE 0 END) as "Faturas Pagas",
+              SUM(CASE WHEN i.status = 'pending' THEN 1 ELSE 0 END) as "Faturas Pendentes",
+              SUM(CASE WHEN i.status = 'paid' THEN i.amount ELSE 0 END) as "Receita Realizada",
+              SUM(CASE WHEN i.status = 'pending' THEN i.amount ELSE 0 END) as "Receita Pendente"
+            FROM invoices i
+            WHERE i.company_id = $1
+            GROUP BY DATE_TRUNC('month', i.created_at)
+            ORDER BY DATE_TRUNC('month', i.created_at) DESC
+            LIMIT 12
+          `
+        }
+      };
+
+      const report = predefinedReports[reportId];
+      if (!report) {
+        return res.status(404).json({ error: "Relatório não encontrado" });
+      }
+
+      // Execute query with company ID as parameter for security
+      const result = await storage.executeQuery(report.query, [companyId]);
+      
+      res.json({
+        reportName: report.name,
+        description: report.description,
+        columns: result.fields.map(f => f.name),
+        rows: result.rows,
+        rowCount: result.rows.length
+      });
+    } catch (error) {
+      console.error("Error executing predefined report:", error);
+      res.status(500).json({ error: "Erro ao executar relatório" });
+    }
+  });
+
+  // Query Builder - Admin only
+  app.post("/api/reports/query-builder", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { table, columns, filters, orderBy, limit } = req.body;
+      const companyId = await getCompanyIdForUser(req);
+      
+      if (!companyId) {
+        return res.status(400).json({ error: "Nenhuma empresa selecionada" });
+      }
+
+      // Whitelist of allowed tables (security)
+      const allowedTables: Record<string, string> = {
+        'clients': 'clients',
+        'licenses': 'licenses',
+        'invoices': 'invoices',
+        'companies': 'companies'
+      };
+
+      if (!allowedTables[table]) {
+        return res.status(400).json({ error: "Tabela não permitida" });
+      }
+
+      // Validate columns (prevent SQL injection)
+      const validColumns = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+      if (!columns.every((col: string) => validColumns.test(col))) {
+        return res.status(400).json({ error: "Nomes de colunas inválidos" });
+      }
+
+      // Build safe query
+      const selectedColumns = columns.join(', ');
+      let query = `SELECT ${selectedColumns} FROM ${table} WHERE company_id = $1`;
+      const params: any[] = [companyId];
+      let paramIndex = 2;
+
+      // Add filters (validated)
+      if (filters && filters.length > 0) {
+        for (const filter of filters) {
+          if (!validColumns.test(filter.column)) {
+            return res.status(400).json({ error: "Nome de coluna inválido no filtro" });
+          }
+          
+          const operators: Record<string, string> = {
+            'equals': '=',
+            'not_equals': '!=',
+            'greater': '>',
+            'less': '<',
+            'like': 'LIKE',
+            'in': 'IN'
+          };
+          
+          const operator = operators[filter.operator];
+          if (!operator) {
+            return res.status(400).json({ error: "Operador inválido" });
+          }
+
+          query += ` AND ${filter.column} ${operator} $${paramIndex}`;
+          params.push(filter.value);
+          paramIndex++;
+        }
+      }
+
+      // Add order by
+      if (orderBy && validColumns.test(orderBy)) {
+        query += ` ORDER BY ${orderBy}`;
+      }
+
+      // Add limit
+      const maxLimit = 1000;
+      const queryLimit = Math.min(limit || 100, maxLimit);
+      query += ` LIMIT ${queryLimit}`;
+
+      const result = await storage.executeQuery(query, params);
+      
+      res.json({
+        columns: result.fields.map(f => f.name),
+        rows: result.rows,
+        rowCount: result.rows.length
+      });
+    } catch (error) {
+      console.error("Error executing query builder:", error);
+      res.status(500).json({ error: "Erro ao executar consulta" });
+    }
+  });
+
+  // Custom SQL - Admin only (with safety restrictions)
+  app.post("/api/reports/custom-sql", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { sql } = req.body;
+      const companyId = await getCompanyIdForUser(req);
+      
+      if (!companyId) {
+        return res.status(400).json({ error: "Nenhuma empresa selecionada" });
+      }
+
+      if (!sql || typeof sql !== 'string') {
+        return res.status(400).json({ error: "SQL inválido" });
+      }
+
+      // Security validations
+      const sqlUpper = sql.toUpperCase().trim();
+      
+      // Only allow SELECT statements
+      if (!sqlUpper.startsWith('SELECT')) {
+        return res.status(403).json({ error: "Apenas consultas SELECT são permitidas" });
+      }
+
+      // Block dangerous keywords
+      const dangerousKeywords = [
+        'DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'CREATE', 
+        'INSERT', 'UPDATE', 'REPLACE', 'GRANT', 'REVOKE',
+        'EXECUTE', 'EXEC', 'CALL', 'PROCEDURE', 'FUNCTION'
+      ];
+
+      for (const keyword of dangerousKeywords) {
+        if (sqlUpper.includes(keyword)) {
+          return res.status(403).json({ 
+            error: `Operação não permitida: ${keyword}. Apenas consultas SELECT são permitidas.` 
+          });
+        }
+      }
+
+      // Limit query size (prevent abuse)
+      const maxQueryLength = 5000;
+      if (sql.length > maxQueryLength) {
+        return res.status(400).json({ error: "Consulta muito longa" });
+      }
+
+      // Add timeout to prevent long-running queries
+      const timeoutMs = 30000; // 30 seconds
+      const queryWithTimeout = `SET statement_timeout = ${timeoutMs}; ${sql}`;
+
+      const result = await storage.executeQuery(queryWithTimeout, []);
+      
+      res.json({
+        columns: result.fields.map(f => f.name),
+        rows: result.rows,
+        rowCount: result.rows.length
+      });
+    } catch (error: any) {
+      console.error("Error executing custom SQL:", error);
+      
+      // Return user-friendly error messages
+      if (error.message?.includes('syntax error')) {
+        return res.status(400).json({ error: "Erro de sintaxe SQL" });
+      }
+      if (error.message?.includes('timeout')) {
+        return res.status(408).json({ error: "Consulta excedeu tempo limite de 30 segundos" });
+      }
+      
+      res.status(500).json({ error: "Erro ao executar consulta SQL" });
+    }
+  });
+
+  // Get database schema reference - Admin only
+  app.get("/api/reports/schema", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const schema = {
+        tables: [
+          {
+            name: 'companies',
+            description: 'Empresas cadastradas no sistema',
+            columns: [
+              { name: 'id', type: 'varchar', description: 'ID único da empresa' },
+              { name: 'name', type: 'varchar', description: 'Nome da empresa' },
+              { name: 'cnpj', type: 'varchar', description: 'CNPJ' },
+              { name: 'monthly_value', type: 'decimal', description: 'Valor mensal da empresa' },
+              { name: 'revenue_share_percentage', type: 'decimal', description: '% de repasse' },
+              { name: 'free_license_quota', type: 'decimal', description: 'Cota de licenças gratuitas' },
+              { name: 'status', type: 'varchar', description: 'Status (active/inactive)' },
+              { name: 'created_at', type: 'timestamp', description: 'Data de criação' }
+            ]
+          },
+          {
+            name: 'clients',
+            description: 'Clientes (ERP) de cada empresa',
+            columns: [
+              { name: 'id', type: 'varchar', description: 'ID único do cliente' },
+              { name: 'company_id', type: 'varchar', description: 'ID da empresa (white label)' },
+              { name: 'company_name', type: 'text', description: 'Nome do cliente' },
+              { name: 'contact_name', type: 'text', description: 'Nome do contato' },
+              { name: 'email', type: 'text', description: 'Email' },
+              { name: 'phone', type: 'text', description: 'Telefone' },
+              { name: 'cnpj', type: 'text', description: 'CNPJ' },
+              { name: 'plan', type: 'text', description: 'Plano contratado' },
+              { name: 'monthly_value', type: 'decimal', description: 'Valor mensal' },
+              { name: 'due_day', type: 'integer', description: 'Dia de vencimento (1-31)' },
+              { name: 'status', type: 'text', description: 'Status (active/inactive)' },
+              { name: 'created_at', type: 'timestamp', description: 'Data de cadastro' }
+            ]
+          },
+          {
+            name: 'licenses',
+            description: 'Licenças de software dos clientes',
+            columns: [
+              { name: 'id', type: 'varchar', description: 'ID único da licença' },
+              { name: 'company_id', type: 'varchar', description: 'ID da empresa' },
+              { name: 'client_id', type: 'varchar', description: 'ID do cliente' },
+              { name: 'license_key', type: 'text', description: 'Chave da licença' },
+              { name: 'is_active', type: 'boolean', description: 'Licença ativa?' },
+              { name: 'activated_at', type: 'timestamp', description: 'Data de ativação' },
+              { name: 'expires_at', type: 'timestamp', description: 'Data de expiração' }
+            ]
+          },
+          {
+            name: 'invoices',
+            description: 'Faturas geradas para os clientes',
+            columns: [
+              { name: 'id', type: 'varchar', description: 'ID único da fatura' },
+              { name: 'company_id', type: 'varchar', description: 'ID da empresa' },
+              { name: 'client_id', type: 'varchar', description: 'ID do cliente' },
+              { name: 'amount', type: 'decimal', description: 'Valor da fatura' },
+              { name: 'due_date', type: 'timestamp', description: 'Data de vencimento' },
+              { name: 'paid_at', type: 'timestamp', description: 'Data de pagamento' },
+              { name: 'status', type: 'text', description: 'Status (pending/paid/overdue)' },
+              { name: 'created_at', type: 'timestamp', description: 'Data de criação' }
+            ]
+          },
+          {
+            name: 'users',
+            description: 'Usuários do sistema',
+            columns: [
+              { name: 'id', type: 'varchar', description: 'ID único do usuário' },
+              { name: 'email', type: 'varchar', description: 'Email' },
+              { name: 'first_name', type: 'varchar', description: 'Nome' },
+              { name: 'last_name', type: 'varchar', description: 'Sobrenome' },
+              { name: 'role', type: 'varchar', description: 'Papel (admin/user)' },
+              { name: 'active_company_id', type: 'varchar', description: 'Empresa ativa' },
+              { name: 'created_at', type: 'timestamp', description: 'Data de criação' }
+            ]
+          }
+        ],
+        examples: [
+          {
+            title: 'Clientes ativos com licenças',
+            sql: 'SELECT c.company_name, COUNT(l.id) as total_licenses FROM clients c LEFT JOIN licenses l ON l.client_id = c.id WHERE c.company_id = \'YOUR_COMPANY_ID\' GROUP BY c.id'
+          },
+          {
+            title: 'Receita total por mês',
+            sql: 'SELECT DATE_TRUNC(\'month\', paid_at) as month, SUM(amount) as revenue FROM invoices WHERE company_id = \'YOUR_COMPANY_ID\' AND status = \'paid\' GROUP BY month'
+          }
+        ]
+      };
+
+      res.json(schema);
+    } catch (error) {
+      console.error("Error fetching schema:", error);
+      res.status(500).json({ error: "Erro ao buscar estrutura do banco" });
+    }
+  });
+
   // Financial Stats - Real data with trends
   app.get("/api/stats/financial", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
     try {

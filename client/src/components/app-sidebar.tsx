@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, CreditCard, Key, UserCircle, Settings, Shield, UserCog, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Key, UserCircle, Settings, Shield, UserCog, Building2, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -35,6 +35,11 @@ const menuItems = [
     title: "Licenças",
     url: "/licencas",
     icon: Key,
+  },
+  {
+    title: "Relatórios",
+    url: "/relatorios",
+    icon: BarChart3,
   },
   {
     title: "Configurações",

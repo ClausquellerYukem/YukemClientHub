@@ -21,6 +21,7 @@ import Users from "@/pages/users";
 import PermissoesPage from "@/pages/admin/permissoes";
 import EmpresasPage from "@/pages/admin/empresas";
 import FixUser from "@/pages/fix-user";
+import Reports from "@/pages/reports";
 
 // Router with authentication - Reference: blueprint:javascript_log_in_with_replit
 function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -34,6 +35,7 @@ function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
           <Route path="/clientes" component={Clients} />
           <Route path="/financeiro" component={Financial} />
           <Route path="/licencas" component={Licenses} />
+          <Route path="/relatorios" component={Reports} />
           <Route path="/configuracoes" component={BoletoConfig} />
           <Route path="/perfil" component={Profile} />
           <Route path="/admin/usuarios" component={Users} />
