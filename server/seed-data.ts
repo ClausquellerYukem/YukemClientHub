@@ -10,7 +10,7 @@ export async function seedRolesAndPermissions() {
     return;
   }
 
-  const resources = ["clients", "licenses", "invoices", "boleto_config"];
+  const resources = ["clients", "licenses", "invoices", "boleto_config", "cash_accounts", "cash_bases", "cash_sessions", "payment_methods"];
 
   const adminRole = await storage.createRole({
     name: "Administrador",

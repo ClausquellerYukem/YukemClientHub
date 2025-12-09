@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ClientsTable } from "@/components/clients-table";
 import { ClientForm } from "@/components/client-form";
@@ -25,8 +25,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Client } from "@shared/schema";
+import { FilterCard } from "@/components/filter-card";
+import type { FilterGroup, FieldDef, FilterCond } from "@/components/filter-builder";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Clients() {
   const [showForm, setShowForm] = useState(false);
@@ -34,6 +37,49 @@ export default function Clients() {
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const defaultColumnsOrder = ["companyName","contactName","email","plan","monthlyValue","status"];
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({ companyName: true, contactName: true, email: true, plan: true, monthlyValue: true, status: true });
+  const [columnsOrder, setColumnsOrder] = useState<string[]>(defaultColumnsOrder);
+  const [columnsDialog, setColumnsDialog] = useState(false);
+  const [sortBy, setSortBy] = useState<string>("companyName");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [filtersTree, setFiltersTree] = useState<FilterGroup>({ id: String(Date.now()), type: 'group', logical: 'AND', children: [] } as any);
+  const [appliedTree, setAppliedTree] = useState<FilterGroup>({ id: String(Date.now()), type: 'group', logical: 'AND', children: [] } as any);
+  const [initialApplied, setInitialApplied] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+
+  const { data: pref } = useQuery<any>({
+    queryKey: ["/api/preferences/grid", { resource: "clients" }],
+    queryFn: async () => {
+      const res = await fetch(`/api/preferences/grid?resource=clients`, { credentials: "include" });
+      return await res.json();
+    }
+  });
+
+  const savePrefMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      return apiRequest("PUT", "/api/preferences/grid", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/preferences/grid", { resource: "clients" }] });
+      setColumnsDialog(false);
+      toast({ title: "Preferências salvas" });
+    }
+  });
+
+  useEffect(() => {
+    if (pref?.columns) {
+      setVisibleColumns(pref.columns.visible || visibleColumns);
+      setColumnsOrder(pref.columns.order?.length ? pref.columns.order : defaultColumnsOrder);
+    }
+    if (pref?.sort) {
+      setSortBy(pref.sort.by || sortBy);
+      setSortDir(pref.sort.dir || sortDir);
+    }
+  }, [pref]);
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
@@ -194,7 +240,94 @@ export default function Clients() {
     plan: client.plan,
     status: client.status as "active" | "inactive" | "trial",
     monthlyValue: parseFloat(client.monthlyValue),
+    createdAt: client.createdAt?.toString(),
   }));
+
+  const clientFieldDefs: FieldDef[] = [
+    { key: 'id', label: 'ID', type: 'id', operators: ['equals','in'] },
+    { key: 'companyName', label: 'Empresa', type: 'string', operators: ['contains','equals','startsWith','endsWith','in'] },
+    { key: 'contactName', label: 'Contato', type: 'string', operators: ['contains','equals','startsWith','endsWith','in'] },
+    { key: 'email', label: 'Email', type: 'string', operators: ['contains','equals','startsWith','endsWith','in'] },
+    { key: 'plan', label: 'Plano', type: 'string', operators: ['contains','equals','startsWith','endsWith','in'] },
+    { key: 'status', label: 'Status', type: 'enum', enumValues: [{ value: 'active', label: 'Ativo' }, { value: 'inactive', label: 'Inativo' }, { value: 'trial', label: 'Trial' }], operators: ['equals','in'] },
+    { key: 'monthlyValue', label: 'Valor Mensal', type: 'number', operators: ['equals','gt','lt','between'] },
+    { key: 'createdAt', label: 'Criado em', type: 'date', operators: ['equals','between'] },
+  ];
+
+  const evalCond = (item: any, cond: FilterCond) => {
+    const v = item[cond.field];
+    const op = String(cond.op || '').toLowerCase();
+    if (cond.field === 'monthlyValue') {
+      const num = Number(v); const a = Number(cond.value); const b = Number(cond.value2);
+      if (op === 'equals') return num === a;
+      if (op === 'gt') return num > a;
+      if (op === 'lt') return num < a;
+      if (op === 'between') return !isNaN(a) && !isNaN(b) ? (num >= a && num <= b) : false;
+      return true;
+    }
+    if (cond.field === 'status') {
+      if (op === 'equals') return String(v) === String(cond.value);
+      if (op === 'in') return Array.isArray(cond.value) ? cond.value.includes(String(v)) : String(v) === String(cond.value);
+      return true;
+    }
+    if (cond.field === 'id') {
+      if (op === 'equals') return String(v) === String(cond.value);
+      if (op === 'in') {
+        const arr = Array.isArray(cond.value) ? cond.value : String(cond.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        return arr.includes(String(v));
+      }
+      return true;
+    }
+    if (cond.field === 'companyName' || cond.field === 'contactName' || cond.field === 'email' || cond.field === 'plan') {
+      const sv = String(v || '').toLowerCase(); const q = String(cond.value || '').toLowerCase();
+      if (op === 'equals') return sv === q;
+      if (op === 'contains') return sv.includes(q);
+      if (op === 'startswith') return sv.startsWith(q);
+      if (op === 'endswith') return sv.endsWith(q);
+      if (op === 'in') {
+        const arr = Array.isArray(cond.value) ? cond.value.map((x: string) => x.toLowerCase()) : String(cond.value || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+        return arr.includes(sv);
+      }
+      return true;
+    }
+    if (cond.field === 'createdAt') {
+      const d = v ? new Date(v) : undefined;
+      if (!d) return false;
+      if (op === 'equals') return String(cond.value || '') ? (d.toISOString().slice(0,10) === String(cond.value)) : true;
+      if (op === 'between') {
+        const a = cond.value ? new Date(String(cond.value)) : undefined;
+        const b = cond.value2 ? new Date(String(cond.value2)) : undefined;
+        if (!a || !b) return false;
+        const da = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+        const db = new Date(b.getFullYear(), b.getMonth(), b.getDate(), 23, 59, 59);
+        return d >= da && d <= db;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const matchesTree = (item: any, node: any): boolean => {
+    if (!node) return true;
+    if (node.type === 'cond') return evalCond(item, node as FilterCond);
+    if (node.type === 'group') {
+      const children = (node.children || []) as any[];
+      if (!children.length) return true;
+      const results = children.map(ch => matchesTree(item, ch));
+      return String(node.logical) === 'OR' ? results.some(Boolean) : results.every(Boolean);
+    }
+    return true;
+  };
+
+  const filteredClientsByTree = formattedClients.filter(c => matchesTree(c, appliedTree));
+
+  useEffect(() => {
+    if (!initialApplied && (filtersTree.children || []).length > 0) {
+      setAppliedTree(filtersTree);
+      setPage(1);
+      setInitialApplied(true);
+    }
+  }, [filtersTree]);
 
   if (isLoading) {
     return (
@@ -213,14 +346,32 @@ export default function Clients() {
             Gerencie seus clientes e contratos
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} data-testid="button-add-client">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setColumnsDialog(true)} data-testid="button-columns">Colunas</Button>
+          <Button onClick={() => setShowForm(true)} data-testid="button-add-client">
           <Plus className="h-4 w-4 mr-2" />
           Novo Cliente
-        </Button>
+          </Button>
+        </div>
       </div>
 
+      <FilterCard
+        tree={filtersTree}
+        onChange={(t) => { setFiltersTree(t); }}
+        fields={clientFieldDefs}
+        onAddFilter={() => { const ft = { ...filtersTree } as any; ft.children.push({ id: String(Math.random()), type: 'cond', field: 'companyName', op: 'contains', value: '' }); setFiltersTree(ft); }}
+        onAddGroup={() => { const ft = { ...filtersTree, children: [...filtersTree.children, { id: String(Math.random()), type: 'group', logical: 'AND', children: [] }] }; setFiltersTree(ft); }}
+        onClear={() => { const empty = { id: String(Date.now()), type: 'group', logical: 'AND', children: [] } as any; setFiltersTree(empty); }}
+        onApply={(t) => { setAppliedTree(t); setPage(1); }}
+      />
+
       <ClientsTable
-        clients={formattedClients}
+        clients={filteredClientsByTree}
+        columnsOrder={columnsOrder}
+        visibleColumns={visibleColumns}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={(by, dir) => { setSortBy(by); setSortDir(dir); savePrefMutation.mutate({ resource: "clients", columns: { visible: visibleColumns, order: columnsOrder, filtersTree: filtersTree }, sort: { by, dir } }); }}
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
@@ -228,7 +379,47 @@ export default function Clients() {
         isGeneratingInvoice={generateInvoiceMutation.isPending}
         onGenerateLicense={handleGenerateLicense}
         isGeneratingLicense={generateLicenseMutation.isPending}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={(next) => setPage(next)}
       />
+
+      <Dialog open={columnsDialog} onOpenChange={setColumnsDialog}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Colunas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {defaultColumnsOrder.map((col, idx) => (
+              <div key={col} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={visibleColumns[col] !== false} onCheckedChange={(v) => setVisibleColumns({ ...visibleColumns, [col]: !!v })} />
+                  <span>{col === "companyName" ? "Empresa" : col === "contactName" ? "Contato" : col === "email" ? "Email" : col === "plan" ? "Plano" : col === "monthlyValue" ? "Valor Mensal" : col === "status" ? "Status" : col}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    if (idx <= 0) return;
+                    const order = [...columnsOrder];
+                    const i = order.indexOf(col);
+                    [order[i - 1], order[i]] = [order[i], order[i - 1]];
+                    setColumnsOrder(order);
+                  }}>Subir</Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const order = [...columnsOrder];
+                    const i = order.indexOf(col);
+                    if (i >= order.length - 1) return;
+                    [order[i + 1], order[i]] = [order[i], order[i + 1]];
+                    setColumnsOrder(order);
+                  }}>Descer</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => savePrefMutation.mutate({ resource: "clients", columns: { visible: visibleColumns, order: columnsOrder }, sort: { by: sortBy, dir: sortDir } })} data-testid="button-save-columns">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de Criar Cliente */}
       <Dialog open={showForm} onOpenChange={setShowForm}>

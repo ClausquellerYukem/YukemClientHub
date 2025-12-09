@@ -1,9 +1,57 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Building2, Shield, TrendingUp, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Shield, TrendingUp, Users } from "lucide-react";
 import yukemLogo from "@assets/yukem completa sem fundo_1762452903411.png";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Landing() {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  async function doLogin() {
+    if (!email || !password) {
+      if (!email) setEmailError("Informe seu e-mail");
+      if (!password) setPasswordError("Informe sua senha");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        let message = "Falha ao autenticar";
+        try {
+          const txt = await res.text();
+          const parsed = txt ? JSON.parse(txt) : null;
+          if (parsed?.message) message = parsed.message;
+        } catch {}
+        setEmailError("Email ou senha inválidos");
+        setPasswordError("Email ou senha inválidos");
+        toast({ title: "Credenciais inválidas", description: message, variant: "destructive" });
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      location.href = "/";
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erro", description: "Não foi possível fazer login", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="relative overflow-hidden">
@@ -18,9 +66,17 @@ export default function Landing() {
                 className="h-10 w-auto"
                 data-testid="img-logo-header"
               />
-              <Button asChild data-testid="button-login">
-                <a href="/api/login">Login</a>
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="w-56">
+                  <Input placeholder="email" value={email} onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(null); }} />
+                  {emailError && (<p className="text-xs text-destructive mt-1" data-testid="error-email">{emailError}</p>)}
+                </div>
+                <div className="w-40">
+                  <Input type="password" placeholder="senha" value={password} onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(null); }} />
+                  {passwordError && (<p className="text-xs text-destructive mt-1" data-testid="error-password">{passwordError}</p>)}
+                </div>
+                <Button disabled={loading} onClick={doLogin} data-testid="button-login">{loading ? "Entrando..." : "Login"}</Button>
+              </div>
             </div>
           </header>
 
@@ -34,13 +90,7 @@ export default function Landing() {
                 Gerencie clientes, licenças e faturamento em um só lugar. 
                 Controle total sobre o seu negócio com uma interface intuitiva e moderna.
               </p>
-              <div className="pt-4">
-                <Button size="lg" asChild data-testid="button-get-started">
-                  <a href="/api/login">
-                    Começar Agora
-                  </a>
-                </Button>
-              </div>
+              <div className="pt-4" />
             </div>
           </section>
 
@@ -84,11 +134,7 @@ export default function Landing() {
               <p className="text-xl text-muted-foreground">
                 Faça login para acessar a plataforma e gerenciar seus clientes.
               </p>
-              <Button size="lg" asChild data-testid="button-login-footer">
-                <a href="/api/login">
-                  Fazer Login
-                </a>
-              </Button>
+              <div />
             </div>
           </section>
         </div>

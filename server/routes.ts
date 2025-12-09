@@ -1,9 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema, insertCompanySchema, insertUserCompanySchema } from "@shared/schema";
+import { insertClientSchema, insertLicenseSchema, insertInvoiceSchema, insertBoletoConfigSchema, insertCompanySchema, insertUserCompanySchema, insertCashAccountSchema, insertCashBaseSchema, insertCashSessionSchema, insertCashAccountTypeSchema } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isAdmin, requirePermission, getUserFromSession } from "./replitAuth";
+import { cashRouter } from "./modules/cash";
+import { invoicesRouter } from "./modules/invoices";
+import { licensesRouter } from "./modules/licenses";
+import { boletoRouter } from "./modules/boleto";
+import { reportsRouter } from "./modules/reports";
+import { companiesRouter } from "./modules/companies";
+import { permissionsRouter } from "./modules/permissions";
+import { userRouter, usersAdminRouter } from "./modules/users";
+import { rolesRouter } from "./modules/roles";
+import { adminRouter } from "./modules/admin";
 
 // Helper function to get companyId for multi-tenant data isolation
 // Returns activeCompanyId if user has one set (for both admins and regular users)
@@ -11,8 +21,8 @@ import { setupAuth, isAuthenticated, isAdmin, requirePermission, getUserFromSess
 // Returns null for regular users without activeCompanyId (allows graceful empty state)
 async function getCompanyIdForUser(req: any): Promise<string | undefined | null> {
   // Use dbUserId from session if available, otherwise use OAuth ID
-  const userId = req.user.dbUserId || req.user.claims.sub;
-  console.log('[getCompanyIdForUser] Looking for user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims.sub, 'Using:', userId);
+  const userId = req.user.dbUserId || req.user.email || req.user.claims?.sub;
+  console.log('[getCompanyIdForUser] Looking for user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims?.sub, 'Using:', userId);
   
   let user = await storage.getUser(userId);
   console.log('[getCompanyIdForUser] User found by ID?', user ? `YES (${user.email})` : 'NO');
@@ -62,16 +72,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication - Reference: blueprint:javascript_log_in_with_replit
   await setupAuth(app);
 
+  app.get('/health', (_req, res) => {
+    res.status(200).send('ok');
+  });
+
+  app.get('/ready', async (_req, res) => {
+    if (!process.env.DATABASE_URL) return res.status(200).send('ok');
+    try {
+      const { pool } = await import('./db');
+      await pool.query('SELECT 1');
+      res.status(200).send('ok');
+    } catch {
+      res.status(503).send('unready');
+    }
+  });
+
   // Initialize roles and permissions if they don't exist
   const { seedRolesAndPermissions } = await import("./seed-data");
   await seedRolesAndPermissions();
+
+  // Ensure master user exists when configured via environment
+  try {
+    const masterEmail = process.env.MASTER_USER_EMAIL;
+    if (masterEmail) {
+      await storage.upsertUser({ email: masterEmail });
+      console.log('[Startup] Master user ensured:', masterEmail);
+    }
+  } catch (err) {
+    console.error('[Startup] Failed to ensure master user:', err);
+  }
 
   // Auth route to get current user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       // Use dbUserId from session if available, otherwise use OAuth ID
-      const userId = req.user.dbUserId || req.user.claims.sub;
-      console.log('[GET /api/auth/user] Fetching user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims.sub, 'Using:', userId);
+      const userId = req.user.dbUserId || req.user.email || req.user.claims?.sub;
+      console.log('[GET /api/auth/user] Fetching user - dbUserId:', req.user.dbUserId, 'OAuth ID:', req.user.claims?.sub, 'Using:', userId);
       
       let user = await storage.getUser(userId);
       console.log('[GET /api/auth/user] User found by ID?', user ? 'YES' : 'NO');
@@ -188,588 +224,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/licenses", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
+  app.use("/api/licenses", licensesRouter);
+
+  app.use("/api/invoices", invoicesRouter);
+
+  
+
+  app.use("/api/boleto", boletoRouter);
+
+  
+
+  app.get("/api/preferences/grid", isAuthenticated, async (req, res) => {
     try {
-      const companyId = await getCompanyIdForUser(req);
-      const licenses = await storage.getAllLicenses(companyId);
-      res.json(licenses);
+      const userId = req.user?.dbUserId || req.user?.email || req.user?.claims?.sub;
+      const { resource } = req.query as any;
+      if (!resource) return res.status(400).json({ error: "resource é obrigatório" });
+      const pref = await storage.getUserGridPreference(userId, resource);
+      res.json(pref || null);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch licenses" });
+      res.status(500).json({ error: "Failed to fetch grid preference" });
     }
   });
 
-  app.get("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'read'), async (req, res) => {
+  app.put("/api/preferences/grid", isAuthenticated, async (req, res) => {
     try {
-      const companyId = await getCompanyIdForUser(req);
-      const license = await storage.getLicense(req.params.id, companyId);
-      if (!license) {
-        return res.status(404).json({ error: "License not found" });
-      }
-      res.json(license);
+      const userId = req.user?.dbUserId || req.user?.email || req.user?.claims?.sub;
+      const { resource, columns } = req.body || {};
+      if (!resource || !columns) return res.status(400).json({ error: "resource e columns são obrigatórios" });
+      const saved = await storage.upsertUserGridPreference({ userId, resource, columns });
+      res.json(saved);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch license" });
+      res.status(500).json({ error: "Failed to save grid preference" });
     }
   });
 
-  app.post("/api/licenses", isAuthenticated, requirePermission('licenses', 'create'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const validatedData = insertLicenseSchema.parse(req.body);
-      
-      // Enforce company isolation: overwrite companyId for non-admin users
-      if (companyId) {
-        validatedData.companyId = companyId;
-      }
-      
-      const license = await storage.createLicense(validatedData);
-      res.status(201).json(license);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create license" });
-    }
-  });
+  app.use("/api/cash", cashRouter);
+  app.use("/api/companies", companiesRouter);
+  app.use("/api/permissions", permissionsRouter);
+  app.use("/api/user", userRouter);
+  app.use("/api/users", usersAdminRouter);
+  app.use("/api/roles", rolesRouter);
+  app.use("/api/admin", adminRouter);
 
-  app.post("/api/licenses/generate", isAuthenticated, requirePermission('licenses', 'create'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const { clientId } = req.body;
-      
-      if (!clientId) {
-        return res.status(400).json({ error: "O ID do cliente é obrigatório" });
-      }
-      
-      // SECURITY: Get client with company isolation to prevent cross-tenant license generation
-      const client = await storage.getClient(clientId, companyId);
-      if (!client) {
-        return res.status(404).json({ error: "Cliente não encontrado ou acesso negado" });
-      }
-      
-      // Check for duplicate license: verify if there's already an active license for this client
-      const existingLicenses = await storage.getAllLicenses(companyId);
-      const activeLicense = existingLicenses.find(lic => 
-        lic.clientId === clientId && lic.isActive === true
-      );
-      
-      if (activeLicense) {
-        return res.status(409).json({ 
-          error: "Já existe uma licença ativa para este cliente"
-        });
-      }
-      
-      // Generate unique license key (format: XXXX-XXXX-XXXX-XXXX with only alphanumeric uppercase)
-      const { customAlphabet } = await import('nanoid');
-      const generateSegment = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4);
-      const generateLicenseKey = () => {
-        return `${generateSegment()}-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
-      };
-      
-      // Calculate expiration date (1 year from now)
-      const expiresAt = new Date();
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      
-      // Create the license with enforced company isolation
-      const licenseData = {
-        companyId: client.companyId,
-        clientId: client.id,
-        licenseKey: generateLicenseKey(),
-        isActive: true,
-        expiresAt: expiresAt,
-      };
-      
-      const license = await storage.createLicense(licenseData);
-      res.status(201).json(license);
-    } catch (error) {
-      console.error("Error generating license:", error);
-      res.status(500).json({ error: "Falha ao gerar licença" });
-    }
-  });
-
-  app.patch("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'update'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const validatedData = insertLicenseSchema.partial().parse(req.body);
-      
-      // Prevent companyId reassignment: remove from payload
-      delete validatedData.companyId;
-      
-      const license = await storage.updateLicense(req.params.id, validatedData, companyId);
-      if (!license) {
-        return res.status(404).json({ error: "License not found" });
-      }
-      res.json(license);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update license" });
-    }
-  });
-
-  app.delete("/api/licenses/:id", isAuthenticated, requirePermission('licenses', 'delete'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const deleted = await storage.deleteLicense(req.params.id, companyId);
-      if (!deleted) {
-        return res.status(404).json({ error: "License not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete license" });
-    }
-  });
-
-  app.get("/api/invoices", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const invoices = await storage.getAllInvoices(companyId);
-      res.json(invoices);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch invoices" });
-    }
-  });
-
-  app.get("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const invoice = await storage.getInvoice(req.params.id, companyId);
-      if (!invoice) {
-        return res.status(404).json({ error: "Invoice not found" });
-      }
-      res.json(invoice);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch invoice" });
-    }
-  });
-
-  app.post("/api/invoices", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const validatedData = insertInvoiceSchema.parse(req.body);
-      
-      // Enforce company isolation: overwrite companyId for non-admin users
-      if (companyId) {
-        validatedData.companyId = companyId;
-      }
-      
-      const invoice = await storage.createInvoice(validatedData);
-      res.status(201).json(invoice);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create invoice" });
-    }
-  });
-
-  app.post("/api/invoices/generate", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const { clientId } = req.body;
-      
-      if (!clientId) {
-        return res.status(400).json({ error: "O ID do cliente é obrigatório" });
-      }
-      
-      // SECURITY: Get client with company isolation to prevent cross-tenant invoice generation
-      const client = await storage.getClient(clientId, companyId);
-      if (!client) {
-        return res.status(404).json({ error: "Cliente não encontrado ou acesso negado" });
-      }
-      
-      // Validate dueDay is a valid number between 1-31
-      const dueDay = client.dueDay;
-      if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
-        return res.status(400).json({ error: "Dia de vencimento inválido no cadastro do cliente" });
-      }
-      
-      // Calculate due date based on client's dueDay (handles month overflow)
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Normalize to midnight for comparison
-      let dueDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
-      
-      // Handle overflow for short months (e.g., Feb 31 becomes Mar 3)
-      // Set to last day of month if dueDay exceeds month's days
-      if (dueDate.getDate() !== dueDay) {
-        // Overflow occurred, set to last day of current month
-        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      }
-      
-      // If calculated due date is in the past (compare dates only, not times), use next month
-      if (dueDate < today) {
-        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
-        // Handle overflow again for next month
-        if (dueDate.getDate() !== dueDay) {
-          dueDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-        }
-      }
-      
-      // Check for duplicate invoice: verify if there's already an invoice for this client with same due date
-      const existingInvoices = await storage.getInvoicesByClientId(clientId);
-      const dueDateStr = dueDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
-      const duplicateInvoice = existingInvoices.find(inv => {
-        const invDueDateStr = new Date(inv.dueDate).toISOString().split('T')[0];
-        return invDueDateStr === dueDateStr;
-      });
-      
-      if (duplicateInvoice) {
-        return res.status(409).json({ 
-          error: "Já existe uma fatura para este cliente com a mesma data de vencimento"
-        });
-      }
-      
-      // Create the invoice with enforced company isolation
-      const invoiceData = {
-        companyId: client.companyId,
-        clientId: client.id,
-        amount: client.monthlyValue,
-        dueDate: dueDate,
-        status: "pending" as const,
-      };
-      
-      const invoice = await storage.createInvoice(invoiceData);
-      res.status(201).json(invoice);
-    } catch (error) {
-      console.error("Error generating invoice:", error);
-      res.status(500).json({ error: "Falha ao gerar fatura" });
-    }
-  });
-
-  app.patch("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'update'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const validatedData = insertInvoiceSchema.partial().parse(req.body);
-      
-      // Prevent companyId reassignment: remove from payload
-      delete validatedData.companyId;
-      
-      const invoice = await storage.updateInvoice(req.params.id, validatedData, companyId);
-      if (!invoice) {
-        return res.status(404).json({ error: "Invoice not found" });
-      }
-      
-      // Automatic license control: if invoice is marked as paid, check if client has other overdue invoices
-      if (validatedData.status === 'paid' && invoice.clientId) {
-        // Get all invoices for this client
-        const clientInvoices = await storage.getInvoicesByClientId(invoice.clientId);
-        const now = new Date();
-        
-        // Check if client has any other overdue unpaid invoices
-        const hasOtherOverdue = clientInvoices.some(
-          inv => inv.id !== invoice.id && 
-                 inv.status !== 'paid' && 
-                 inv.dueDate && 
-                 new Date(inv.dueDate) < now
-        );
-        
-        // Only unblock if client has no other overdue invoices
-        if (!hasOtherOverdue) {
-          await storage.unblockClientLicenses(invoice.clientId);
-        }
-        // If client still has overdue invoices, keep licenses blocked
-      }
-      
-      res.json(invoice);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update invoice" });
-    }
-  });
-
-  app.delete("/api/invoices/:id", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const deleted = await storage.deleteInvoice(req.params.id, companyId);
-      if (!deleted) {
-        return res.status(404).json({ error: "Invoice not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete invoice" });
-    }
-  });
-
-  // Automatic license blocking - Check overdue invoices and block/unblock licenses
-  app.post("/api/licenses/check-overdue", isAuthenticated, async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      
-      // Return empty result for users without company (graceful empty state)
-      if (companyId === null) {
-        return res.json({ blocked: 0, unblocked: 0 });
-      }
-      
-      const result = await storage.checkAndBlockOverdueLicenses(companyId);
-      res.json(result);
-    } catch (error) {
-      console.error("Error checking overdue licenses:", error);
-      res.status(500).json({ error: "Failed to check overdue licenses" });
-    }
-  });
-
-  // Generate boleto via external API
-  app.post("/api/invoices/:id/generate-boleto", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      const invoiceId = req.params.id;
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "Por favor, selecione uma empresa ativa" });
-      }
-      
-      // Get the invoice to ensure it belongs to the user's company
-      const invoice = await storage.getInvoice(invoiceId, companyId);
-      if (!invoice) {
-        return res.status(404).json({ error: "Fatura não encontrada" });
-      }
-      
-      // Get boleto configuration
-      const config = await storage.getBoletoConfig(companyId);
-      if (!config) {
-        return res.status(400).json({ error: "Configuração de boleto não encontrada. Configure primeiro na aba Configurações." });
-      }
-      
-      // Call external boleto API
-      const boletoApiUrl = "https://api.yukem.com.br/v1/geraboletoapi";
-      
-      const response = await fetch(boletoApiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'app_token': config.appToken,
-          'access_token': config.accessToken,
-        },
-        body: JSON.stringify({
-          id: invoiceId,
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Boleto API error:", errorText);
-        return res.status(response.status).json({ 
-          error: "Erro ao gerar boleto", 
-          details: errorText 
-        });
-      }
-      
-      const boletoData = await response.json();
-      
-      // Validate response structure
-      if (!boletoData.data || !boletoData.data.ParcelaId) {
-        console.error("Invalid boleto response:", boletoData);
-        return res.status(500).json({ 
-          error: "Resposta inválida da API de boletos",
-          details: "A API não retornou os dados esperados" 
-        });
-      }
-      
-      // Save boleto data to database
-      await storage.updateInvoiceBoletoData(invoiceId, companyId, {
-        boletoParcelaId: boletoData.data.ParcelaId,
-        boletoQrcodeId: boletoData.data.qrcodeId || null,
-        boletoQrcode: boletoData.data.qrcode || null,
-        boletoQrcodeBase64: boletoData.data.qrcodeBase64 || null,
-        boletoUrl: boletoData.data.url || null,
-        boletoGeneratedAt: new Date(),
-      });
-      
-      res.json(boletoData.data);
-    } catch (error) {
-      console.error("Error generating boleto:", error);
-      res.status(500).json({ error: "Falha ao gerar boleto" });
-    }
-  });
-
-  app.get("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'read'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "Por favor, selecione uma empresa ativa" });
-      }
-      
-      const config = await storage.getBoletoConfig(companyId);
-      if (!config) {
-        return res.json(null);
-      }
-      
-      const maskedConfig = {
-        ...config,
-        appToken: config.appToken ? `${config.appToken.substring(0, 4)}${"*".repeat(Math.max(0, config.appToken.length - 8))}${config.appToken.substring(Math.max(0, config.appToken.length - 4))}` : "",
-        accessToken: config.accessToken ? `${config.accessToken.substring(0, 4)}${"*".repeat(Math.max(0, config.accessToken.length - 8))}${config.accessToken.substring(Math.max(0, config.accessToken.length - 4))}` : "",
-      };
-      res.json(maskedConfig);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch boleto configuration" });
-    }
-  });
-
-  app.post("/api/boleto/config", isAuthenticated, requirePermission('boleto_config', 'update'), async (req, res) => {
-    try {
-      const companyId = await getCompanyIdForUser(req);
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "Por favor, selecione uma empresa ativa" });
-      }
-      
-      // Inject companyId before validation (users don't send it in body)
-      const dataToValidate = { ...req.body, companyId };
-      const validatedData = insertBoletoConfigSchema.parse(dataToValidate);
-      
-      const config = await storage.saveBoletoConfig(validatedData);
-      res.json(config);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to save boleto configuration" });
-    }
-  });
-
-  app.post("/api/boleto/print/:id", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
-    try {
-      const sessionUser = req.user as any;
-      const user = await getUserFromSession(sessionUser);
-      const isAdmin = user?.role === 'admin';
-      
-      let companyId: string | undefined;
-      
-      if (isAdmin) {
-        // Admins MUST specify companyId explicitly via query parameter
-        companyId = req.query.companyId as string;
-        if (!companyId) {
-          return res.status(400).json({ error: "Admins must specify ?companyId=xxx" });
-        }
-      } else {
-        // Regular users use their active company
-        companyId = await getCompanyIdForUser(req);
-      }
-      
-      const config = await storage.getBoletoConfig(companyId);
-      if (!config) {
-        return res.status(400).json({ error: "Configuração de boleto não encontrada. Configure primeiro." });
-      }
-
-      const invoiceId = req.params.id;
-      const boletoApiUrl = `http://51.222.16.165:3010/v1/boleto/${invoiceId}`;
-
-      const response = await fetch(boletoApiUrl, {
-        method: 'GET',
-        headers: {
-          'app_token': config.appToken,
-          'access_token': config.accessToken,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Boleto API error:", errorText);
-        return res.status(response.status).json({ 
-          error: "Erro ao gerar boleto", 
-          details: errorText 
-        });
-      }
-
-      const boletoData = await response.json();
-      
-      if (!boletoData || (!boletoData.url && !boletoData.pdf && !boletoData.link && !boletoData.base64 && !boletoData.pdfBase64)) {
-        console.error("Invalid boleto response:", boletoData);
-        return res.status(500).json({ 
-          error: "Resposta inválida da API de boletos",
-          details: "A API não retornou um link ou arquivo válido para o boleto" 
-        });
-      }
-
-      res.json(boletoData);
-    } catch (error) {
-      console.error("Error printing boleto:", error);
-      res.status(500).json({ error: "Falha ao conectar com a API de boletos" });
-    }
-  });
-
-  // Admin - User Management Routes
-  app.post("/api/users/:userId/roles", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { roleId } = req.body;
-      
-      if (!roleId) {
-        return res.status(400).json({ error: "Role ID is required" });
-      }
-
-      const assignment = await storage.assignRole({ userId, roleId });
-      res.json(assignment);
-    } catch (error) {
-      console.error("Error assigning role:", error);
-      res.status(500).json({ error: "Failed to assign role" });
-    }
-  });
-
-  app.delete("/api/users/:userId/roles/:roleId", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const { userId, roleId } = req.params;
-      const success = await storage.removeRoleAssignment(userId, roleId);
-      
-      if (!success) {
-        return res.status(404).json({ error: "Role assignment not found" });
-      }
-      
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error removing role:", error);
-      res.status(500).json({ error: "Failed to remove role" });
-    }
-  });
-
-  // Admin - Role Management Routes
-  app.get("/api/roles", isAuthenticated, async (req, res) => {
-    try {
-      const roles = await storage.getAllRoles();
-      res.json(roles);
-    } catch (error) {
-      console.error("Error fetching roles:", error);
-      res.status(500).json({ error: "Failed to fetch roles" });
-    }
-  });
-
-  // Admin - Permission Management Routes
-  app.get("/api/permissions", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const permissions = await storage.getAllPermissions();
-      res.json(permissions);
-    } catch (error) {
-      console.error("Error fetching permissions:", error);
-      res.status(500).json({ error: "Failed to fetch permissions" });
-    }
-  });
-
-  app.put("/api/permissions/:id", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      const permission = await storage.updateRolePermission(id, updates);
-      
-      if (!permission) {
-        return res.status(404).json({ error: "Permission not found" });
-      }
-      
-      res.json(permission);
-    } catch (error) {
-      console.error("Error updating permission:", error);
-      res.status(500).json({ error: "Failed to update permission" });
-    }
-  });
+  
 
   // Current user permissions (for UI guards)
   app.get("/api/me/permissions", isAuthenticated, async (req, res) => {
     try {
       const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
+      const userId = sessionUser?.dbUserId || sessionUser?.email || sessionUser?.claims?.sub;
       
       const permissionsMap = await storage.getUserPermissions(userId);
       
@@ -1083,435 +586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== REPORTS ENDPOINTS =====
-  
-  // Predefined Reports - Available to all authenticated users
-  app.post("/api/reports/predefined/:reportId", isAuthenticated, async (req, res) => {
-    try {
-      const { reportId } = req.params;
-      const { filters } = req.body;
-      const companyId = await getCompanyIdForUser(req);
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "Nenhuma empresa selecionada" });
-      }
-
-      // Define predefined reports with safe, validated SQL
-      const predefinedReports: Record<string, { name: string; query: string; description: string }> = {
-        'monthly-revenue-by-client': {
-          name: 'Faturamento Mensal por Cliente',
-          description: 'Receita mensal detalhada de cada cliente',
-          query: `
-            SELECT 
-              c.company_name as "Cliente",
-              c.plan as "Plano",
-              c.monthly_value as "Valor Mensal",
-              c.status as "Status",
-              COUNT(DISTINCT l.id) as "Licenças Ativas",
-              TO_CHAR(c.created_at, 'DD/MM/YYYY') as "Data Cadastro"
-            FROM clients c
-            LEFT JOIN licenses l ON l.client_id = c.id AND l.is_active = true
-            WHERE c.company_id = $1
-            GROUP BY c.id, c.company_name, c.plan, c.monthly_value, c.status, c.created_at
-            ORDER BY c.company_name
-          `
-        },
-        'licenses-expiring-soon': {
-          name: 'Licenças Vencendo (Próximos 30 Dias)',
-          description: 'Licenças que expiram nos próximos 30 dias',
-          query: `
-            SELECT 
-              c.company_name as "Cliente",
-              l.license_key as "Chave da Licença",
-              TO_CHAR(l.expires_at, 'DD/MM/YYYY') as "Data Expiração",
-              CASE 
-                WHEN l.is_active THEN 'Ativa'
-                ELSE 'Inativa'
-              END as "Status",
-              EXTRACT(DAY FROM (l.expires_at - NOW())) as "Dias Restantes"
-            FROM licenses l
-            JOIN clients c ON c.id = l.client_id
-            WHERE l.company_id = $1
-            AND l.expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days'
-            ORDER BY l.expires_at
-          `
-        },
-        'payment-history': {
-          name: 'Histórico de Pagamentos',
-          description: 'Histórico completo de faturas pagas',
-          query: `
-            SELECT 
-              c.company_name as "Cliente",
-              i.amount as "Valor",
-              TO_CHAR(i.due_date, 'DD/MM/YYYY') as "Vencimento",
-              TO_CHAR(i.paid_at, 'DD/MM/YYYY') as "Data Pagamento",
-              i.status as "Status",
-              CASE 
-                WHEN i.paid_at IS NULL THEN null
-                WHEN i.paid_at <= i.due_date THEN 'No Prazo'
-                ELSE 'Atrasado'
-              END as "Situação"
-            FROM invoices i
-            JOIN clients c ON c.id = i.client_id
-            WHERE i.company_id = $1
-            AND i.status = 'paid'
-            ORDER BY i.paid_at DESC
-          `
-        },
-        'pending-invoices': {
-          name: 'Faturas Pendentes',
-          description: 'Todas as faturas aguardando pagamento',
-          query: `
-            SELECT 
-              c.company_name as "Cliente",
-              c.email as "Email",
-              c.phone as "Telefone",
-              i.amount as "Valor",
-              TO_CHAR(i.due_date, 'DD/MM/YYYY') as "Vencimento",
-              EXTRACT(DAY FROM (NOW() - i.due_date)) as "Dias Atraso",
-              CASE 
-                WHEN NOW() > i.due_date THEN 'Vencida'
-                ELSE 'A Vencer'
-              END as "Situação"
-            FROM invoices i
-            JOIN clients c ON c.id = i.client_id
-            WHERE i.company_id = $1
-            AND i.status = 'pending'
-            ORDER BY i.due_date
-          `
-        },
-        'sales-performance': {
-          name: 'Performance de Vendas',
-          description: 'Resumo de vendas e receitas por período',
-          query: `
-            SELECT 
-              TO_CHAR(DATE_TRUNC('month', i.created_at), 'MM/YYYY') as "Mês",
-              COUNT(DISTINCT i.client_id) as "Clientes Ativos",
-              COUNT(i.id) as "Total Faturas",
-              SUM(CASE WHEN i.status = 'paid' THEN 1 ELSE 0 END) as "Faturas Pagas",
-              SUM(CASE WHEN i.status = 'pending' THEN 1 ELSE 0 END) as "Faturas Pendentes",
-              SUM(CASE WHEN i.status = 'paid' THEN i.amount ELSE 0 END) as "Receita Realizada",
-              SUM(CASE WHEN i.status = 'pending' THEN i.amount ELSE 0 END) as "Receita Pendente"
-            FROM invoices i
-            WHERE i.company_id = $1
-            GROUP BY DATE_TRUNC('month', i.created_at)
-            ORDER BY DATE_TRUNC('month', i.created_at) DESC
-            LIMIT 12
-          `
-        }
-      };
-
-      const report = predefinedReports[reportId];
-      if (!report) {
-        return res.status(404).json({ error: "Relatório não encontrado" });
-      }
-
-      // Execute query with company ID as parameter for security
-      const result = await storage.executeQuery(report.query, [companyId]);
-      
-      const response = {
-        reportName: report.name,
-        description: report.description,
-        columns: (result.fields || []).map(f => f.name),
-        rows: result.rows || [],
-        rowCount: (result.rows || []).length
-      };
-      
-      console.log(`[REPORTS] Predefined report ${reportId} executed:`, {
-        companyId,
-        rowCount: response.rowCount,
-        columnsCount: response.columns.length,
-        firstRow: response.rows[0] || null
-      });
-      
-      res.json(response);
-    } catch (error) {
-      console.error("Error executing predefined report:", error);
-      res.status(500).json({ error: "Erro ao executar relatório" });
-    }
-  });
-
-  // Query Builder - Admin only
-  app.post("/api/reports/query-builder", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const { table, columns, filters, orderBy, limit } = req.body;
-      const companyId = await getCompanyIdForUser(req);
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "Nenhuma empresa selecionada" });
-      }
-
-      // Whitelist of allowed tables (security)
-      const allowedTables: Record<string, string> = {
-        'clients': 'clients',
-        'licenses': 'licenses',
-        'invoices': 'invoices',
-        'companies': 'companies'
-      };
-
-      if (!allowedTables[table]) {
-        return res.status(400).json({ error: "Tabela não permitida" });
-      }
-
-      // Map of valid columns for each table (prevents SQL errors for non-existent columns)
-      const tableColumns: Record<string, string[]> = {
-        'clients': ['id', 'company_id', 'company_name', 'contact_name', 'email', 'phone', 'cnpj', 'plan', 'monthly_value', 'due_day', 'status', 'created_at'],
-        'licenses': ['id', 'company_id', 'client_id', 'license_key', 'is_active', 'activated_at', 'expires_at'],
-        'invoices': ['id', 'company_id', 'client_id', 'amount', 'due_date', 'paid_at', 'status', 'created_at', 'parcela_id', 'qrcode_id', 'qrcode', 'qrcode_base64', 'url', 'generated_at'],
-        'companies': ['id', 'name', 'logo_url', 'status', 'cnpj', 'state_registration', 'city_registration', 'address_street', 'address_number', 'address_complement', 'address_district', 'address_city', 'address_state', 'address_zip_code', 'monthly_value', 'revenue_share_percentage', 'free_license_quota', 'created_at', 'updated_at']
-      };
-
-      // Validate columns (prevent SQL injection and non-existent columns)
-      const validColumns = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-      if (!columns.every((col: string) => validColumns.test(col))) {
-        return res.status(400).json({ error: "Nomes de colunas inválidos" });
-      }
-
-      // Check if all columns exist in the selected table
-      const availableColumns = tableColumns[table];
-      const invalidColumns = columns.filter((col: string) => !availableColumns.includes(col));
-      if (invalidColumns.length > 0) {
-        return res.status(400).json({ 
-          error: `Colunas não encontradas na tabela '${table}': ${invalidColumns.join(', ')}. Colunas disponíveis: ${availableColumns.join(', ')}` 
-        });
-      }
-
-      // Build safe query
-      const selectedColumns = columns.join(', ');
-      let query = `SELECT ${selectedColumns} FROM ${table} WHERE company_id = $1`;
-      const params: any[] = [companyId];
-      let paramIndex = 2;
-
-      // Add filters (validated)
-      if (filters && filters.length > 0) {
-        for (const filter of filters) {
-          if (!validColumns.test(filter.column)) {
-            return res.status(400).json({ error: "Nome de coluna inválido no filtro" });
-          }
-
-          // Validate filter column exists in table
-          if (!availableColumns.includes(filter.column)) {
-            return res.status(400).json({ 
-              error: `Coluna '${filter.column}' não encontrada na tabela '${table}'. Colunas disponíveis: ${availableColumns.join(', ')}` 
-            });
-          }
-          
-          const operators: Record<string, string> = {
-            'equals': '=',
-            'not_equals': '!=',
-            'greater': '>',
-            'less': '<',
-            'like': 'LIKE',
-            'in': 'IN'
-          };
-          
-          const operator = operators[filter.operator];
-          if (!operator) {
-            return res.status(400).json({ error: "Operador inválido" });
-          }
-
-          query += ` AND ${filter.column} ${operator} $${paramIndex}`;
-          params.push(filter.value);
-          paramIndex++;
-        }
-      }
-
-      // Add order by (with validation)
-      if (orderBy) {
-        if (!validColumns.test(orderBy)) {
-          return res.status(400).json({ error: "Nome de coluna inválido em ORDER BY" });
-        }
-        if (!availableColumns.includes(orderBy)) {
-          return res.status(400).json({ 
-            error: `Coluna '${orderBy}' não encontrada na tabela '${table}'. Colunas disponíveis: ${availableColumns.join(', ')}` 
-          });
-        }
-        query += ` ORDER BY ${orderBy}`;
-      }
-
-      // Add limit
-      const maxLimit = 1000;
-      const queryLimit = Math.min(limit || 100, maxLimit);
-      query += ` LIMIT ${queryLimit}`;
-
-      const result = await storage.executeQuery(query, params);
-      
-      res.json({
-        columns: (result.fields || []).map(f => f.name),
-        rows: result.rows || [],
-        rowCount: (result.rows || []).length
-      });
-    } catch (error) {
-      console.error("Error executing query builder:", error);
-      res.status(500).json({ error: "Erro ao executar consulta" });
-    }
-  });
-
-  // Custom SQL - Admin only (with safety restrictions)
-  app.post("/api/reports/custom-sql", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const { sql } = req.body;
-      const companyId = await getCompanyIdForUser(req);
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "Nenhuma empresa selecionada" });
-      }
-
-      if (!sql || typeof sql !== 'string') {
-        return res.status(400).json({ error: "SQL inválido" });
-      }
-
-      // Security validations
-      const sqlUpper = sql.toUpperCase().trim();
-      
-      // Only allow SELECT statements
-      if (!sqlUpper.startsWith('SELECT')) {
-        return res.status(403).json({ error: "Apenas consultas SELECT são permitidas" });
-      }
-
-      // Block dangerous keywords
-      const dangerousKeywords = [
-        'DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'CREATE', 
-        'INSERT', 'UPDATE', 'REPLACE', 'GRANT', 'REVOKE',
-        'EXECUTE', 'EXEC', 'CALL', 'PROCEDURE', 'FUNCTION'
-      ];
-
-      for (const keyword of dangerousKeywords) {
-        if (sqlUpper.includes(keyword)) {
-          return res.status(403).json({ 
-            error: `Operação não permitida: ${keyword}. Apenas consultas SELECT são permitidas.` 
-          });
-        }
-      }
-
-      // Limit query size (prevent abuse)
-      const maxQueryLength = 5000;
-      if (sql.length > maxQueryLength) {
-        return res.status(400).json({ error: "Consulta muito longa" });
-      }
-
-      // Add timeout to prevent long-running queries
-      const timeoutMs = 30000; // 30 seconds
-      const queryWithTimeout = `SET statement_timeout = ${timeoutMs}; ${sql}`;
-
-      const result = await storage.executeQuery(queryWithTimeout, []);
-      
-      res.json({
-        columns: (result.fields || []).map(f => f.name),
-        rows: result.rows || [],
-        rowCount: (result.rows || []).length
-      });
-    } catch (error: any) {
-      console.error("Error executing custom SQL:", error);
-      
-      // Return user-friendly error messages
-      if (error.message?.includes('syntax error')) {
-        return res.status(400).json({ error: "Erro de sintaxe SQL" });
-      }
-      if (error.message?.includes('timeout')) {
-        return res.status(408).json({ error: "Consulta excedeu tempo limite de 30 segundos" });
-      }
-      
-      res.status(500).json({ error: "Erro ao executar consulta SQL" });
-    }
-  });
-
-  // Get database schema reference - Admin only
-  app.get("/api/reports/schema", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const schema = {
-        tables: [
-          {
-            name: 'companies',
-            description: 'Empresas cadastradas no sistema',
-            columns: [
-              { name: 'id', type: 'varchar', description: 'ID único da empresa' },
-              { name: 'name', type: 'varchar', description: 'Nome da empresa' },
-              { name: 'cnpj', type: 'varchar', description: 'CNPJ' },
-              { name: 'monthly_value', type: 'decimal', description: 'Valor mensal da empresa' },
-              { name: 'revenue_share_percentage', type: 'decimal', description: '% de repasse' },
-              { name: 'free_license_quota', type: 'decimal', description: 'Cota de licenças gratuitas' },
-              { name: 'status', type: 'varchar', description: 'Status (active/inactive)' },
-              { name: 'created_at', type: 'timestamp', description: 'Data de criação' }
-            ]
-          },
-          {
-            name: 'clients',
-            description: 'Clientes (ERP) de cada empresa',
-            columns: [
-              { name: 'id', type: 'varchar', description: 'ID único do cliente' },
-              { name: 'company_id', type: 'varchar', description: 'ID da empresa (white label)' },
-              { name: 'company_name', type: 'text', description: 'Nome do cliente' },
-              { name: 'contact_name', type: 'text', description: 'Nome do contato' },
-              { name: 'email', type: 'text', description: 'Email' },
-              { name: 'phone', type: 'text', description: 'Telefone' },
-              { name: 'cnpj', type: 'text', description: 'CNPJ' },
-              { name: 'plan', type: 'text', description: 'Plano contratado' },
-              { name: 'monthly_value', type: 'decimal', description: 'Valor mensal' },
-              { name: 'due_day', type: 'integer', description: 'Dia de vencimento (1-31)' },
-              { name: 'status', type: 'text', description: 'Status (active/inactive)' },
-              { name: 'created_at', type: 'timestamp', description: 'Data de cadastro' }
-            ]
-          },
-          {
-            name: 'licenses',
-            description: 'Licenças de software dos clientes',
-            columns: [
-              { name: 'id', type: 'varchar', description: 'ID único da licença' },
-              { name: 'company_id', type: 'varchar', description: 'ID da empresa' },
-              { name: 'client_id', type: 'varchar', description: 'ID do cliente' },
-              { name: 'license_key', type: 'text', description: 'Chave da licença' },
-              { name: 'is_active', type: 'boolean', description: 'Licença ativa?' },
-              { name: 'activated_at', type: 'timestamp', description: 'Data de ativação' },
-              { name: 'expires_at', type: 'timestamp', description: 'Data de expiração' }
-            ]
-          },
-          {
-            name: 'invoices',
-            description: 'Faturas geradas para os clientes',
-            columns: [
-              { name: 'id', type: 'varchar', description: 'ID único da fatura' },
-              { name: 'company_id', type: 'varchar', description: 'ID da empresa' },
-              { name: 'client_id', type: 'varchar', description: 'ID do cliente' },
-              { name: 'amount', type: 'decimal', description: 'Valor da fatura' },
-              { name: 'due_date', type: 'timestamp', description: 'Data de vencimento' },
-              { name: 'paid_at', type: 'timestamp', description: 'Data de pagamento' },
-              { name: 'status', type: 'text', description: 'Status (pending/paid/overdue)' },
-              { name: 'created_at', type: 'timestamp', description: 'Data de criação' }
-            ]
-          },
-          {
-            name: 'users',
-            description: 'Usuários do sistema',
-            columns: [
-              { name: 'id', type: 'varchar', description: 'ID único do usuário' },
-              { name: 'email', type: 'varchar', description: 'Email' },
-              { name: 'first_name', type: 'varchar', description: 'Nome' },
-              { name: 'last_name', type: 'varchar', description: 'Sobrenome' },
-              { name: 'role', type: 'varchar', description: 'Papel (admin/user)' },
-              { name: 'active_company_id', type: 'varchar', description: 'Empresa ativa' },
-              { name: 'created_at', type: 'timestamp', description: 'Data de criação' }
-            ]
-          }
-        ],
-        examples: [
-          {
-            title: 'Clientes ativos com licenças',
-            sql: 'SELECT c.company_name, COUNT(l.id) as total_licenses FROM clients c LEFT JOIN licenses l ON l.client_id = c.id WHERE c.company_id = \'YOUR_COMPANY_ID\' GROUP BY c.id'
-          },
-          {
-            title: 'Receita total por mês',
-            sql: 'SELECT DATE_TRUNC(\'month\', paid_at) as month, SUM(amount) as revenue FROM invoices WHERE company_id = \'YOUR_COMPANY_ID\' AND status = \'paid\' GROUP BY month'
-          }
-        ]
-      };
-
-      res.json(schema);
-    } catch (error) {
-      console.error("Error fetching schema:", error);
-      res.status(500).json({ error: "Erro ao buscar estrutura do banco" });
-    }
-  });
+  app.use("/api/reports", reportsRouter);
 
   // Financial Stats - Real data with trends
   app.get("/api/stats/financial", isAuthenticated, requirePermission('invoices', 'read'), async (req, res) => {
@@ -1529,6 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pendingInvoicesTrend: null,
           overdueInvoicesCount: 0,
           overdueInvoicesAmount: 0,
+          upcomingInvoicesCount: 0,
         });
       }
       
@@ -1565,6 +641,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const currentRevenue = currentPaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+
+      // Upcoming installments (parcelas a vencer): all non-paid invoices with due date from now onward
+      const upcomingInvoices = invoices.filter(i => {
+        if (i.status === "paid" || !i.dueDate) return false;
+        const dueDate = new Date(i.dueDate);
+        return dueDate >= now;
+      });
       
       // Previous month metrics
       const prevPaidInvoices = invoices.filter(i => {
@@ -1591,6 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pendingInvoicesTrend: calculateTrend(currentPendingInvoices.length, prevPendingInvoices.length),
         overdueInvoicesCount: currentOverdueInvoices.length,
         overdueInvoicesAmount: currentOverdueInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0),
+        upcomingInvoicesCount: upcomingInvoices.length,
       };
 
       res.json(stats);
@@ -1651,72 +735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Company Routes - Multi-tenant support
-  app.get("/api/companies", isAuthenticated, requirePermission('companies', 'read'), async (req, res) => {
-    try {
-      const companies = await storage.getAllCompanies();
-      res.json(companies);
-    } catch (error) {
-      console.error("Error fetching companies:", error);
-      res.status(500).json({ error: "Failed to fetch companies" });
-    }
-  });
-
-  app.post("/api/companies", isAuthenticated, requirePermission('companies', 'create'), async (req, res) => {
-    try {
-      const validatedData = insertCompanySchema.parse(req.body);
-      
-      // Convert empty strings to null for numeric fields (PostgreSQL requirement)
-      const cleanedData = {
-        ...validatedData,
-        monthlyValue: validatedData.monthlyValue === "" ? null : validatedData.monthlyValue,
-        revenueSharePercentage: validatedData.revenueSharePercentage === "" ? null : validatedData.revenueSharePercentage,
-        freeLicenseQuota: validatedData.freeLicenseQuota === "" ? null : validatedData.freeLicenseQuota,
-      };
-      
-      const company = await storage.createCompany(cleanedData);
-      res.status(201).json(company);
-    } catch (error) {
-      console.error("Error creating company:", error);
-      res.status(500).json({ error: "Failed to create company" });
-    }
-  });
-
-  app.patch("/api/companies/:id", isAuthenticated, requirePermission('companies', 'update'), async (req, res) => {
-    try {
-      const validatedData = insertCompanySchema.partial().parse(req.body);
-      
-      // Convert empty strings to null for numeric fields (PostgreSQL requirement)
-      const cleanedData = {
-        ...validatedData,
-        monthlyValue: validatedData.monthlyValue === "" ? null : validatedData.monthlyValue,
-        revenueSharePercentage: validatedData.revenueSharePercentage === "" ? null : validatedData.revenueSharePercentage,
-        freeLicenseQuota: validatedData.freeLicenseQuota === "" ? null : validatedData.freeLicenseQuota,
-      };
-      
-      const company = await storage.updateCompany(req.params.id, cleanedData);
-      if (!company) {
-        return res.status(404).json({ error: "Company not found" });
-      }
-      res.json(company);
-    } catch (error) {
-      console.error("Error updating company:", error);
-      res.status(500).json({ error: "Failed to update company" });
-    }
-  });
-
-  app.delete("/api/companies/:id", isAuthenticated, requirePermission('companies', 'delete'), async (req, res) => {
-    try {
-      const deleted = await storage.deleteCompany(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "Company not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting company:", error);
-      res.status(500).json({ error: "Failed to delete company" });
-    }
-  });
+  
 
   // User-Company Routes
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
@@ -1757,146 +776,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/user/companies", isAuthenticated, async (req, res) => {
-    try {
-      const sessionUser = req.user as any;
-      
-      // Enhanced logging for debugging production issues
-      console.log('[GET /api/user/companies] === REQUEST START ===');
-      console.log('[GET /api/user/companies] Session user:', {
-        hasClaims: !!sessionUser?.claims,
-        sub: sessionUser?.claims?.sub,
-        email: sessionUser?.claims?.email,
-        fullUser: sessionUser
-      });
-      
-      const userId = sessionUser.claims.sub;
-      
-      if (!userId) {
-        console.error('[GET /api/user/companies] ERROR: No userId found in session');
-        return res.status(400).json({ error: "User ID not found in session" });
-      }
-      
-      // Get user to check if admin
-      const user = await getUserFromSession(sessionUser);
-      
-      let companies;
-      
-      // ADMINS: Load all companies in the system
-      if (user?.role === 'admin') {
-        console.log('[GET /api/user/companies] User is admin - loading ALL companies');
-        companies = await storage.getAllCompanies();
-      } else {
-        // NON-ADMINS: Load only associated companies
-        console.log('[GET /api/user/companies] User is not admin - loading associated companies only');
-        companies = await storage.getUserCompanies(userId);
-      }
-      
-      console.log('[GET /api/user/companies] Found', companies.length, 'companies:', companies.map(c => ({ id: c.id, name: c.name })));
-      console.log('[GET /api/user/companies] === REQUEST END ===');
-      
-      res.json(companies);
-    } catch (error) {
-      console.error("[GET /api/user/companies] === ERROR ===");
-      console.error("[GET /api/user/companies] Error fetching user companies:", error);
-      console.error("[GET /api/user/companies] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
-      res.status(500).json({ error: "Failed to fetch user companies" });
-    }
-  });
+  
 
-  app.patch("/api/user/active-company", isAuthenticated, async (req, res) => {
-    try {
-      const sessionUser = req.user as any;
-      const userId = sessionUser.claims.sub;
-      const { companyId } = req.body;
-      
-      console.log('[PATCH /api/user/active-company] === REQUEST START ===');
-      console.log('[PATCH /api/user/active-company] userId:', userId);
-      console.log('[PATCH /api/user/active-company] newCompanyId:', companyId);
-      
-      if (!companyId) {
-        return res.status(400).json({ error: "companyId is required" });
-      }
-      
-      // Get user to check if admin
-      const currentUser = await getUserFromSession(sessionUser);
-      console.log('[PATCH /api/user/active-company] Current user before update:', {
-        id: currentUser?.id,
-        email: currentUser?.email,
-        role: currentUser?.role,
-        activeCompanyId: currentUser?.activeCompanyId
-      });
-      
-      if (!currentUser) {
-        console.error('[PATCH /api/user/active-company] ERROR: User not found in session');
-        return res.status(401).json({ error: "User not found" });
-      }
-      
-      // SECURITY: Verify user has access to this company before setting as active
-      // Admins can switch to any company, non-admins only to associated companies
-      if (currentUser.role !== 'admin') {
-        const userCompanies = await storage.getUserCompanies(userId);
-        const hasAccess = userCompanies.some(c => c.id === companyId);
-        
-        if (!hasAccess) {
-          console.log('[PATCH /api/user/active-company] FORBIDDEN - user not associated with company');
-          return res.status(403).json({ error: "User does not have access to this company" });
-        }
-      }
+  
 
-      console.log('[PATCH /api/user/active-company] Calling storage.setActiveCompany with UUID:', currentUser.id);
-      const user = await storage.setActiveCompany(currentUser.id, companyId);
-      
-      if (!user) {
-        console.error('[PATCH /api/user/active-company] ERROR: User not found after update');
-        return res.status(404).json({ error: "User not found" });
-      }
-      
-      console.log('[PATCH /api/user/active-company] User after update:', {
-        id: user.id,
-        email: user.email,
-        activeCompanyId: user.activeCompanyId
-      });
-      console.log('[PATCH /api/user/active-company] === REQUEST END ===');
-      
-      res.json(user);
-    } catch (error) {
-      console.error("[PATCH /api/user/active-company] === ERROR ===");
-      console.error("[PATCH /api/user/active-company] Error:", error);
-      res.status(500).json({ error: "Failed to set active company" });
-    }
-  });
+  
 
-  app.post("/api/user/companies", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const validatedData = insertUserCompanySchema.parse(req.body);
-      const userCompany = await storage.assignUserToCompany(validatedData);
-      res.status(201).json(userCompany);
-    } catch (error: any) {
-      console.error("Error assigning user to company:", error);
-      
-      // Check if it's a duplicate key violation
-      if (error.code === '23505' && error.constraint === 'user_companies_user_id_company_id_unique') {
-        return res.status(409).json({ error: "Usuário já está associado a esta empresa" });
-      }
-      
-      res.status(500).json({ error: "Failed to assign user to company" });
-    }
-  });
-
-  app.delete("/api/user/companies/:userId/:companyId", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const { userId, companyId } = req.params;
-      const deleted = await storage.removeUserFromCompany(userId, companyId);
-      if (!deleted) {
-        return res.status(404).json({ error: "Association not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error removing user from company:", error);
-      res.status(500).json({ error: "Failed to remove user from company" });
-    }
-  });
+  
 
   // Rate limiting for initial setup endpoint
   const initialSetupAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -1905,7 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/initial-setup", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const sessionUser = req.user as any;
-      const oauthId = sessionUser.claims.sub; // For rate limiting only
+      const oauthId = sessionUser?.claims?.sub || sessionUser?.email || sessionUser?.dbUserId || 'local';
       const { masterPassword } = req.body;
       
       // Rate limiting: 5 attempts per hour per user

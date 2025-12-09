@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, CreditCard, Key, UserCircle, Settings, Shield, UserCog, Building2, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Key, UserCircle, Settings, Shield, UserCog, Building2, BarChart3, Wallet, Boxes, CalendarCheck2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -9,6 +9,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
@@ -28,8 +31,15 @@ const menuItems = [
   },
   {
     title: "Financeiro",
-    url: "/financeiro",
+    url: "/contas-a-receber",
     icon: CreditCard,
+    children: [
+      { title: "Contas à receber", url: "/contas-a-receber", icon: CreditCard },
+      { title: "Categoria de Lançamentos", url: "/caixa/contas", icon: Wallet },
+      { title: "Cadastro de Caixas", url: "/caixa/bases", icon: Boxes },
+      { title: "Tipos de Categoria de Lançamento", url: "/caixa/tipos", icon: Wallet },
+      { title: "Caixa Sessões", url: "/caixa/sessoes", icon: CalendarCheck2 },
+    ],
   },
   {
     title: "Licenças",
@@ -96,6 +106,20 @@ export function AppSidebar() {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
+                  {item.children && (
+                    <SidebarMenuSub>
+                      {item.children.map((sub) => (
+                        <SidebarMenuSubItem key={sub.title}>
+                          <SidebarMenuSubButton asChild isActive={location === sub.url}>
+                            <Link href={sub.url}>
+                              <sub.icon className="h-4 w-4" />
+                              <span>{sub.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

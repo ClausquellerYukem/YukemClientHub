@@ -32,9 +32,14 @@ interface InvoicesTableProps {
   invoices: Invoice[];
   onView?: (id: string) => void;
   onPrintBoleto?: (id: string) => void;
+  columnsOrder?: string[];
+  visibleColumns?: Record<string, boolean>;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  onSortChange?: (sortBy: string, sortDir: "asc" | "desc") => void;
 }
 
-export function InvoicesTable({ invoices, onView, onPrintBoleto }: InvoicesTableProps) {
+export function InvoicesTable({ invoices, onView, onPrintBoleto, columnsOrder, visibleColumns, sortBy: sortByProp, sortDir: sortDirProp, onSortChange }: InvoicesTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -59,62 +64,59 @@ export function InvoicesTable({ invoices, onView, onPrintBoleto }: InvoicesTable
     );
   };
 
+  const cols = (columnsOrder || ["id","clientName","amount","dueDate","paidAt","status"]).filter((c) => visibleColumns ? visibleColumns[c] !== false : true);
+
+  const sortLabel = (col: string) => col === "id" ? "ID" : col === "clientName" ? "Cliente" : col === "amount" ? "Valor" : col === "dueDate" ? "Vencimento" : col === "paidAt" ? "Data Pagamento" : col === "status" ? "Status" : col;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por cliente..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-invoices"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-            <SelectValue placeholder="Todos os status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="paid">Pago</SelectItem>
-            <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="overdue">Vencido</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs font-medium uppercase tracking-wide">ID</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide">Cliente</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide">Valor</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide">Vencimento</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide">Data Pagamento</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide">Status</TableHead>
+              {cols.map((col) => (
+                <TableHead
+                  key={col}
+                  onClick={() => {
+                    const currentSortBy = sortByProp ?? "dueDate";
+                    const currentSortDir = sortDirProp ?? "asc";
+                    if (currentSortBy === col) {
+                      const nextDir = currentSortDir === "asc" ? "desc" : "asc";
+                      onSortChange?.(col, nextDir);
+                    } else {
+                      onSortChange?.(col, "asc");
+                    }
+                  }}
+                  className="text-xs font-medium uppercase tracking-wide cursor-pointer select-none"
+                >
+                  {sortLabel(col)} {(sortByProp ?? "") === col ? ((sortDirProp ?? "asc") === "asc" ? "▲" : "▼") : ""}
+                </TableHead>
+              ))}
               <TableHead className="text-xs font-medium uppercase tracking-wide text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredInvoices.map((invoice) => (
               <TableRow key={invoice.id} className="hover-elevate" data-testid={`row-invoice-${invoice.id}`}>
-                <TableCell className="font-medium font-mono text-xs" data-testid={`text-id-${invoice.id}`}>
-                  #{invoice.id}
-                </TableCell>
-                <TableCell data-testid={`text-client-${invoice.id}`}>{invoice.clientName}</TableCell>
-                <TableCell className="font-medium" data-testid={`text-amount-${invoice.id}`}>
-                  R$ {invoice.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </TableCell>
-                <TableCell data-testid={`text-due-date-${invoice.id}`}>
-                  {new Date(invoice.dueDate).toLocaleDateString("pt-BR")}
-                </TableCell>
-                <TableCell className="text-muted-foreground" data-testid={`text-paid-at-${invoice.id}`}>
-                  {invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString("pt-BR") : "-"}
-                </TableCell>
-                <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                {cols.map((col) => (
+                  <TableCell key={col}>
+                    {col === "id" ? (
+                      <span className="font-medium font-mono text-xs" data-testid={`text-id-${invoice.id}`}>#{invoice.id}</span>
+                    ) : col === "clientName" ? (
+                      <span data-testid={`text-client-${invoice.id}`}>{invoice.clientName}</span>
+                    ) : col === "amount" ? (
+                      <span className="font-medium" data-testid={`text-amount-${invoice.id}`}>R$ {invoice.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    ) : col === "dueDate" ? (
+                      <span data-testid={`text-due-date-${invoice.id}`}>{new Date(invoice.dueDate).toLocaleDateString("pt-BR")}</span>
+                    ) : col === "paidAt" ? (
+                      <span className="text-muted-foreground" data-testid={`text-paid-at-${invoice.id}`}>{invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString("pt-BR") : "-"}</span>
+                    ) : col === "status" ? (
+                      getStatusBadge(invoice.status)
+                    ) : (
+                      (invoice as any)[col]
+                    )}
+                  </TableCell>
+                ))}
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button

@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import type { Server } from "http";
 
 const app = express();
 
@@ -49,10 +50,14 @@ app.use((req, res, next) => {
   next();
 });
 
+let httpServer: Server | undefined;
+let isReady = false;
+
 (async () => {
   try {
     // Note: Initial data seeding removed - will seed after authentication is set up
     const server = await registerRoutes(app);
+    httpServer = server;
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
@@ -76,13 +81,10 @@ app.use((req, res, next) => {
     // this serves both the API and the client.
     // It is the only port that is not firewalled.
     const port = parseInt(process.env.PORT || '5000', 10);
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
+    server.listen(port, () => {
       const env = app.get("env");
       log(`serving on port ${port} in ${env} mode`);
+      isReady = true;
     }).on('error', (err: Error) => {
       console.error('Failed to start server:', err);
       process.exit(1);
@@ -92,3 +94,17 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 })();
+
+const shutdown = () => {
+  isReady = false;
+  if (httpServer) {
+    httpServer.close(() => {
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

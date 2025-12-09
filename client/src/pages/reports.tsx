@@ -14,6 +14,7 @@ import { FileSpreadsheet, Printer, Play, Table, Code, BarChart3, Plus, Trash2 } 
 import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Predefined reports list
 const predefinedReports = [
@@ -70,6 +71,11 @@ export default function Reports() {
 
   const [activeTab, setActiveTab] = useState("predefined");
   const [reportResult, setReportResult] = useState<ReportResult | null>(null);
+  const [columnsDialog, setColumnsDialog] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
+  const [columnsOrder, setColumnsOrder] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   
   // Query Builder state
   const [selectedTable, setSelectedTable] = useState<string>("");
@@ -215,6 +221,50 @@ export default function Reports() {
     
     window.print();
   };
+
+  const { data: pref } = useQuery<any>({
+    queryKey: ["/api/preferences/grid", { resource: "reports_results" }],
+    queryFn: async () => {
+      const res = await fetch(`/api/preferences/grid?resource=reports_results`, { credentials: "include" });
+      return await res.json();
+    }
+  });
+
+  const savePrefMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      return apiRequest("PUT", "/api/preferences/grid", payload);
+    },
+    onSuccess: () => {
+      setColumnsDialog(false);
+      toast({ title: "Preferências salvas" });
+    }
+  });
+
+  const applyPrefToResult = () => {
+    if (reportResult?.columns) {
+      if (pref?.columns?.visible) {
+        setVisibleColumns(pref.columns.visible);
+      } else {
+        const vis: Record<string, boolean> = {};
+        reportResult.columns.forEach((c) => { vis[c] = true; });
+        setVisibleColumns(vis);
+      }
+      if (pref?.columns?.order?.length) {
+        const order = pref.columns.order.filter((c: string) => reportResult.columns.includes(c)).concat(reportResult.columns.filter(c => !pref.columns.order.includes(c)));
+        setColumnsOrder(order);
+      } else {
+        setColumnsOrder(reportResult.columns);
+      }
+      if (pref?.sort) {
+        setSortBy(pref.sort.by || sortBy);
+        setSortDir(pref.sort.dir || sortDir);
+      }
+    }
+  };
+
+  useState(() => {
+    applyPrefToResult();
+  });
 
   // Add column to query builder
   const addColumn = () => {
@@ -564,6 +614,14 @@ export default function Reports() {
                   <Printer className="h-4 w-4 mr-2" />
                   Imprimir
                 </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setColumnsDialog(true)}
+                  data-testid="button-columns"
+                >
+                  Colunas
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -572,17 +630,31 @@ export default function Reports() {
               <table className="w-full border-collapse text-sm" data-testid="table-results">
                 <thead>
                   <tr className="border-b">
-                    {reportResult.columns.map((col) => (
-                      <th key={col} className="text-left p-3 font-semibold bg-muted">
-                        {col}
+                    {(columnsOrder.length ? columnsOrder : reportResult.columns).filter((c) => visibleColumns[c] !== false).map((col) => (
+                      <th key={col} className="text-left p-3 font-semibold bg-muted cursor-pointer select-none" onClick={() => {
+                        if (sortBy === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortBy(col); setSortDir('asc'); }
+                        savePrefMutation.mutate({ resource: "reports_results", columns: { visible: visibleColumns, order: columnsOrder.length ? columnsOrder : (reportResult?.columns || []) }, sort: { by: (sortBy === col ? col : col), dir: (sortBy === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc') } });
+                      }}>
+                        {col} {sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : ''}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {reportResult.rows.map((row, index) => (
+                  {[...reportResult.rows].sort((a: any, b: any) => {
+                    if (!sortBy) return 0;
+                    const av = a[sortBy];
+                    const bv = b[sortBy];
+                    if (av == null && bv == null) return 0;
+                    if (av == null) return sortDir === 'asc' ? -1 : 1;
+                    if (bv == null) return sortDir === 'asc' ? 1 : -1;
+                    if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+                    if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av;
+                    const as = String(av); const bs = String(bv);
+                    return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
+                  }).map((row, index) => (
                     <tr key={index} className="border-b hover:bg-muted/50">
-                      {reportResult.columns.map((col) => (
+                      {(columnsOrder.length ? columnsOrder : reportResult.columns).filter((c) => visibleColumns[c] !== false).map((col) => (
                         <td key={col} className="p-3">
                           {row[col] !== null && row[col] !== undefined 
                             ? String(row[col]) 
@@ -596,6 +668,42 @@ export default function Reports() {
               </table>
             </div>
           </CardContent>
+          <Dialog open={columnsDialog} onOpenChange={setColumnsDialog}>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Colunas</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                {(reportResult?.columns || []).map((col, idx) => (
+                  <div key={col} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={visibleColumns[col] !== false} onCheckedChange={(v) => setVisibleColumns({ ...visibleColumns, [col]: !!v })} />
+                      <span>{col}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const order = columnsOrder.length ? [...columnsOrder] : [...(reportResult?.columns || [])];
+                        const i = order.indexOf(col);
+                        if (i <= 0) return;
+                        [order[i - 1], order[i]] = [order[i], order[i - 1]];
+                        setColumnsOrder(order);
+                      }}>Subir</Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const order = columnsOrder.length ? [...columnsOrder] : [...(reportResult?.columns || [])];
+                        const i = order.indexOf(col);
+                        if (i >= order.length - 1) return;
+                        [order[i + 1], order[i]] = [order[i], order[i + 1]];
+                        setColumnsOrder(order);
+                      }}>Descer</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button onClick={() => savePrefMutation.mutate({ resource: "reports_results", columns: { visible: visibleColumns, order: columnsOrder.length ? columnsOrder : (reportResult?.columns || []) }, sort: { by: sortBy, dir: sortDir } })} data-testid="button-save-columns">Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </Card>
       )}
 

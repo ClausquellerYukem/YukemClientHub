@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, timestamp, boolean, jsonb, index, unique, integer } from "drizzle-orm/pg-core";
+const __enableDbIndexes = typeof process !== 'undefined' && !!(process.env && process.env.ENABLE_DB_INDEXES === 'true');
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -12,7 +13,7 @@ export const sessions = pgTable(
     sess: jsonb("sess").notNull(),
     expire: timestamp("expire").notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => [__enableDbIndexes ? index("IDX_session_expire").on(table.expire) : undefined].filter(Boolean) as any,
 );
 
 // Companies table - Multi-tenant support
@@ -232,9 +233,138 @@ export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
 export type RolePermission = typeof rolePermissions.$inferSelect;
 
 // Permission resource types
-export const resourceSchema = z.enum(['clients', 'licenses', 'invoices', 'boleto_config', 'companies']);
+export const resourceSchema = z.enum(['clients', 'licenses', 'invoices', 'boleto_config', 'companies', 'cash_accounts', 'cash_bases', 'cash_sessions', 'payment_methods']);
 export type Resource = z.infer<typeof resourceSchema>;
 
 // Permission action types
 export const actionSchema = z.enum(['create', 'read', 'update', 'delete']);
 export type Action = z.infer<typeof actionSchema>;
+
+export const cashAccountTypes = pgTable("cash_account_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: varchar("description", { length: 200 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const cashAccounts = pgTable("cash_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  typeId: varchar("type_id").references(() => cashAccountTypes.id, { onDelete: 'set null' }),
+  description: varchar("description").notNull(),
+  movementIndicator: varchar("movement_indicator"),
+  showInCashLaunch: boolean("show_in_cash_launch").default(false),
+  duplicateInReport: boolean("duplicate_in_report").default(false),
+  showInReport: boolean("show_in_report").default(false),
+  inactive: boolean("inactive").default(false),
+  groupInReport: boolean("group_in_report").default(false),
+  budgeted: boolean("budgeted").default(false),
+  category: integer("category").default(0),
+  sequence: varchar("sequence", { length: 10 }),
+  showInDer: boolean("show_in_der").default(false),
+  budgetValue: decimal("budget_value", { precision: 18, scale: 6 }).default("0"),
+  parentAccountId: varchar("parent_account_id").references(() => cashAccounts.id),
+  total: decimal("total", { precision: 18, scale: 6 }).default("0"),
+  externalCode: varchar("external_code", { length: 20 }),
+  contraPartida: varchar("contra_partida", { length: 20 }),
+  accountCashType: integer("account_cash_type").default(0),
+  exportToAccounting: boolean("export_to_accounting").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const cashAccountsDescriptionIdx = __enableDbIndexes ? index("idx_cash_accounts_description").on(cashAccounts.description) : undefined as any;
+export const cashAccountsCategoryIdx = __enableDbIndexes ? index("idx_cash_accounts_category").on(cashAccounts.category) : undefined as any;
+export const cashAccountsTypeIdx = __enableDbIndexes ? index("idx_cash_accounts_type").on(cashAccounts.accountCashType) : undefined as any;
+
+export const insertCashAccountTypeSchema = createInsertSchema(cashAccountTypes).omit({ id: true, createdAt: true });
+
+export const cashBases = pgTable("cash_bases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  internalCode: integer("internal_code"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  description: varchar("description", { length: 100 }).notNull(),
+  visibleToUser: boolean("visible_to_user").notNull().default(false),
+  boxType: integer("box_type").notNull().default(0),
+  balance: decimal("balance", { precision: 18, scale: 6 }).notNull().default("0"),
+  active: boolean("active").notNull().default(false),
+  usePos: integer("use_pos").default(0),
+  exportToAccounting: boolean("export_to_accounting").default(false),
+});
+
+export const cashBasesDescriptionIdx = __enableDbIndexes ? index("idx_cash_bases_description").on(cashBases.description) : undefined as any;
+export const cashBasesActiveIdx = __enableDbIndexes ? index("idx_cash_bases_active").on(cashBases.active) : undefined as any;
+
+export const cashSessions = pgTable("cash_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  baseId: varchar("base_id").notNull().references(() => cashBases.id, { onDelete: 'cascade' }),
+  openedByUserId: varchar("opened_by_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  closedByUserId: varchar("closed_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
+  movementIndicator: varchar("movement_indicator", { length: 1 }),
+  balance: decimal("balance", { precision: 18, scale: 6 }).default("0"),
+  closed: boolean("closed").default(false),
+});
+
+export const cashSessionsBaseIdx = __enableDbIndexes ? index("idx_cash_sessions_base").on(cashSessions.baseId) : undefined as any;
+export const cashSessionsClosedIdx = __enableDbIndexes ? index("idx_cash_sessions_closed").on(cashSessions.closed) : undefined as any;
+export const cashSessionsOpenedAtIdx = __enableDbIndexes ? index("idx_cash_sessions_opened_at").on(cashSessions.openedAt) : undefined as any;
+export const cashSessionsClosedAtIdx = __enableDbIndexes ? index("idx_cash_sessions_closed_at").on(cashSessions.closedAt) : undefined as any;
+
+export const userGridPreferences = pgTable("user_grid_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  resource: varchar("resource").notNull(),
+  columns: jsonb("columns").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqUserResource: unique("uniq_user_resource").on(t.userId, t.resource),
+}));
+
+export const insertUserGridPrefSchema = z.object({
+  userId: z.string(),
+  resource: z.string(),
+  columns: z.object({ visible: z.record(z.boolean()), order: z.array(z.string()) }),
+});
+
+export type UserGridPreference = typeof userGridPreferences.$inferSelect;
+export type InsertUserGridPreference = z.infer<typeof insertUserGridPrefSchema>;
+
+export const paymentMethods = pgTable("payment_methods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  methodTypeId: varchar("method_type_id"),
+  createdDate: timestamp("created_date").notNull().defaultNow(),
+  description: varchar("description", { length: 60 }).notNull(),
+  code: varchar("code", { length: 3 }),
+  allowsChange: boolean("allows_change").default(false),
+  generateInstallments: boolean("generate_installments").default(false),
+  installmentsQty: integer("installments_qty").default(0),
+  daysInterval: integer("days_interval").default(0),
+  firstDueDays: integer("first_due_days").default(0),
+  baseAmount: decimal("base_amount", { precision: 18, scale: 6 }).default("0"),
+  status: boolean("status").default(false),
+  issuesBoleto: boolean("issues_boleto").default(false),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCashAccountSchema = createInsertSchema(cashAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCashBaseSchema = createInsertSchema(cashBases).omit({ id: true, createdAt: true });
+export const insertCashSessionSchema = createInsertSchema(cashSessions).omit({ id: true, openedAt: true, closedAt: true });
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({ id: true, createdDate: true, updatedAt: true });
+
+export type CashAccount = typeof cashAccounts.$inferSelect;
+export type CashAccountType = typeof cashAccountTypes.$inferSelect;
+export type InsertCashAccount = z.infer<typeof insertCashAccountSchema>;
+export type InsertCashAccountType = z.infer<typeof insertCashAccountTypeSchema>;
+export type CashBase = typeof cashBases.$inferSelect;
+export type InsertCashBase = z.infer<typeof insertCashBaseSchema>;
+export type CashSession = typeof cashSessions.$inferSelect;
+export type InsertCashSession = z.infer<typeof insertCashSessionSchema>;
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;

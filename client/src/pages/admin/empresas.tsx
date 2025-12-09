@@ -49,10 +49,26 @@ import { Building2, Plus, Pencil, Trash2, FileText, MapPin, DollarSign } from "l
 import type { Company } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertCompanySchema } from "@shared/schema";
 import { z } from "zod";
 
-type CompanyFormData = z.infer<typeof insertCompanySchema>;
+const companyFormSchema = z.object({
+  name: z.string().min(1),
+  cnpj: z.string().optional(),
+  stateRegistration: z.string().optional(),
+  cityRegistration: z.string().optional(),
+  addressStreet: z.string().optional(),
+  addressNumber: z.string().optional(),
+  addressComplement: z.string().optional(),
+  addressDistrict: z.string().optional(),
+  addressCity: z.string().optional(),
+  addressState: z.string().optional(),
+  addressZipCode: z.string().optional(),
+  monthlyValue: z.string().optional(),
+  revenueSharePercentage: z.string().optional(),
+  freeLicenseQuota: z.string().optional(),
+});
+
+type CompanyFormData = z.infer<typeof companyFormSchema>;
 
 export default function EmpresasPage() {
   const { toast } = useToast();
@@ -66,7 +82,7 @@ export default function EmpresasPage() {
   });
 
   const createForm = useForm<CompanyFormData>({
-    resolver: zodResolver(insertCompanySchema),
+    resolver: zodResolver(companyFormSchema),
     defaultValues: {
       name: "",
       cnpj: "",
@@ -86,7 +102,7 @@ export default function EmpresasPage() {
   });
 
   const editForm = useForm<CompanyFormData>({
-    resolver: zodResolver(insertCompanySchema),
+    resolver: zodResolver(companyFormSchema),
   });
 
   const createMutation = useMutation({

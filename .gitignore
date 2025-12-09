@@ -4,3 +4,10 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+pgdata/
+.trae/
+# Env files (keep example only)
+.env*
+.env.*
+.env.gateway.*
+!.env.gateway.example

@@ -77,6 +77,7 @@ export function CompanySelector() {
         title: "Empresa alterada",
         description: "A empresa ativa foi alterada com sucesso",
       });
+      window.location.reload();
     },
     onError: (error: any) => {
       console.error('[CompanySelector] Mutation error:', error);
@@ -156,7 +157,7 @@ export function CompanySelector() {
       disabled={setActiveCompanyMutation.isPending}
     >
       <SelectTrigger
-        className="w-48"
+        className="min-w-[18rem] w-auto max-w-[36rem]"
         data-testid="select-company"
       >
         <div className="flex items-center gap-2">

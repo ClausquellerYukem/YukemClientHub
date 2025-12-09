@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -22,31 +23,65 @@ import PermissoesPage from "@/pages/admin/permissoes";
 import EmpresasPage from "@/pages/admin/empresas";
 import FixUser from "@/pages/fix-user";
 import Reports from "@/pages/reports";
+import CaixaContas from "@/pages/caixa-contas";
+import CaixaBases from "@/pages/caixa-bases";
+import CaixaSessoes from "@/pages/caixa-sessoes";
+import CaixaTipos from "@/pages/caixa-tipos";
 
 // Router with authentication - Reference: blueprint:javascript_log_in_with_replit
 function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/" component={Landing} />
+          {/* Redirect any other path to landing when not authenticated */}
+          <Route path="/:any*" component={RedirectToLanding} />
+        </>
       ) : (
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/clientes" component={Clients} />
-          <Route path="/financeiro" component={Financial} />
+          <Route path="/clientes/:any*" component={Clients} />
+          <Route path="/contas-a-receber" component={Financial} />
+          <Route path="/contas-a-receber/:any*" component={Financial} />
           <Route path="/licencas" component={Licenses} />
+          <Route path="/licencas/:any*" component={Licenses} />
           <Route path="/relatorios" component={Reports} />
+          <Route path="/relatorios/:any*" component={Reports} />
+          <Route path="/caixa/contas" component={CaixaContas} />
+          <Route path="/caixa/contas/:any*" component={CaixaContas} />
+          <Route path="/caixa/bases" component={CaixaBases} />
+          <Route path="/caixa/bases/:any*" component={CaixaBases} />
+          <Route path="/caixa/tipos" component={CaixaTipos} />
+          <Route path="/caixa/tipos/:any*" component={CaixaTipos} />
+          <Route path="/caixa/sessoes" component={CaixaSessoes} />
+          <Route path="/caixa/sessoes/:any*" component={CaixaSessoes} />
           <Route path="/configuracoes" component={BoletoConfig} />
+          <Route path="/configuracoes/:any*" component={BoletoConfig} />
           <Route path="/perfil" component={Profile} />
+          <Route path="/perfil/:any*" component={Profile} />
           <Route path="/admin/usuarios" component={Users} />
+          <Route path="/admin/usuarios/:any*" component={Users} />
           <Route path="/admin/permissoes" component={PermissoesPage} />
+          <Route path="/admin/permissoes/:any*" component={PermissoesPage} />
           <Route path="/admin/empresas" component={EmpresasPage} />
+          <Route path="/admin/empresas/:any*" component={EmpresasPage} />
           <Route path="/fix-user" component={FixUser} />
+          <Route path="/fix-user/:any*" component={FixUser} />
         </>
       )}
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+function RedirectToLanding() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/");
+  }, [setLocation]);
+  return null;
 }
 
 export default function App() {
